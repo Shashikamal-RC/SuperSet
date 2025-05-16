@@ -1,5 +1,6 @@
 import time
 import os
+import json
 from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -11,17 +12,28 @@ load_dotenv()
 def log_to_google_sheet(data: dict):
     data = data.__dict__
 
-    # Get the directory where this script is located
-    current_dir = os.path.dirname(os.path.abspath(__file__))
     # Get configuration from environment variables
-    service_account_filename = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE')
-    # Create absolute path to the service account file
-    SERVICE_ACCOUNT_FILE = os.path.join(current_dir, service_account_filename)
     SPREADSHEET_ID = os.environ.get('GOOGLE_SHEETS_SPREADSHEET_ID')
     RANGE_NAME = os.environ.get('GOOGLE_SHEETS_RANGE_NAME', 'Sheet1!A1')
 
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
+    # Create service account info dictionary from environment variables
+    service_account_info = {
+        "type": os.environ.get('GOOGLE_SERVICE_ACCOUNT_TYPE'),
+        "project_id": os.environ.get('GOOGLE_SERVICE_ACCOUNT_PROJECT_ID'),
+        "private_key_id": os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID'),
+        "private_key": os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'),
+        "client_email": os.environ.get('GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL'),
+        "client_id": os.environ.get('GOOGLE_SERVICE_ACCOUNT_CLIENT_ID'),
+        "auth_uri": os.environ.get('GOOGLE_SERVICE_ACCOUNT_AUTH_URI'),
+        "token_uri": os.environ.get('GOOGLE_SERVICE_ACCOUNT_TOKEN_URI'),
+        "auth_provider_x509_cert_url": os.environ.get('GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL'),
+        "client_x509_cert_url": os.environ.get('GOOGLE_SERVICE_ACCOUNT_CLIENT_X509_CERT_URL'),
+        "universe_domain": os.environ.get('GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN')
+    }
+
+    # Create credentials from the service account info
+    credentials = service_account.Credentials.from_service_account_info(
+        service_account_info,
         scopes=["https://www.googleapis.com/auth/spreadsheets"]
     )
 
