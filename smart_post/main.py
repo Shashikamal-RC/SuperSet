@@ -168,22 +168,22 @@ if st.session_state.job_data:
                 timestamp=st.session_state.job_data.get("timestamp", datetime.now())
             )
             
-            # # Option to post job
-            # if st.checkbox("Post job to Superset", value=False):
-            #     # Job Posting Function
-            #     with st.spinner("Posting Job at SuperSet..."):
-            #         automator = SupersetAutomator(
-            #             url="https://app.joinsuperset.com/",
-            #             username="rishikesh@mesaschool.co",
-            #             password="@Mesa2025",
-            #             headless=False,  # Set True to run without opening the browser window
-            #         )
-            #         success = automator.run(job_data_obj)
+            # Option to post job
+            if st.checkbox("Post job to Superset", value=False):
+                # Job Posting Function
+                with st.spinner("Posting Job at SuperSet..."):
+                    automator = SupersetAutomator(
+                        url="https://app.joinsuperset.com/",
+                        username="rishikesh@mesaschool.co",
+                        password="@Mesa2025",
+                        headless=False,  # Set True to run without opening the browser window
+                    )
+                    success = automator.run(job_data_obj)
                     
-            #         if success:
-            #             st.success("📡 Job post successful!")
-            #         else:
-            #             st.error("❌ Job post failed. Please try again.")
+                    if success:
+                        st.success("📡 Job post successful!")
+                    else:
+                        st.error("❌ Job post failed. Please try again.")
                     
             # Call logging function - always log regardless of posting
             with st.spinner("Logging to Google Sheet..."):
