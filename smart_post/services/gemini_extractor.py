@@ -63,8 +63,7 @@ For job_function, analyze the job title and description to categorize it as one 
 
 If none of these categories clearly fit, default to 'Product Management'.
 
-IMPORTANT: DO NOT include emojis or special Unicode characters in any field, especially job_description. 
-Use only basic ASCII characters and standard punctuation. Replace any emojis with appropriate text descriptions.
+IMPORTANT: For job_description, when extracting from the input, maintain EXACTLY the original formatting, structure, line breaks, bullet points, and paragraphing. Copy the job description section precisely as it appears in the input text - do not rewrite, summarize, or restructure it. Only clean emojis or special Unicode characters by replacing them with appropriate text descriptions while preserving all formatting.
 
 If a detailed job description is not provided in the input, generate a professional and comprehensive job description based on the job title and other information available. When generating a job description, set is_ai_generated to True. Otherwise, extract the job description from the input and set is_ai_generated to False."""),
     ("human", """{raw_input}
@@ -77,7 +76,7 @@ Please extract the following fields:
 - max_salary: Maximum salary/CTC in numerical format only (e.g., for ₹15 LPA, extract 1500000)
 - salary_breakup: Detailed breakdown of salary components as a string (not a list)
 - job_function: Categorize as 'Sales', 'General Management', 'Marketing - General', or 'Product Management' (default to 'Product Management' if uncertain)
-- job_description: Complete job description from the input, or generate one if not provided. DO NOT include emojis or special characters.
+- job_description: Extract the COMPLETE job description section EXACTLY as it appears in the input, preserving original formatting, structure, line breaks, and paragraphing. Only clean emojis or special Unicode characters.
 - is_ai_generated: Set to true if you generated the job description, false if extracted from input
 
 Respond in JSON format with these fields.""")

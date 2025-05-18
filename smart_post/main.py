@@ -1,3 +1,4 @@
+import os
 import time
 import streamlit as st
 import io
@@ -174,7 +175,7 @@ if st.session_state.job_data:
                     url="https://app.joinsuperset.com/",
                     username="rishikesh@mesaschool.co",
                     password="@Mesa2025",
-                    headless=False,  # Set True to run without opening the browser window
+                    headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t")
                 )
                 success = automator.run(job_data_obj)
                 
