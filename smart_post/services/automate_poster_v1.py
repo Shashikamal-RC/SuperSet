@@ -794,8 +794,8 @@ class SupersetAutomator:
             label_text: Text of the label associated with the editor
             content: Content to enter in the editor
             
-        Returns:
-            bool: True if successful, False otherwise
+            Returns:
+                bool: True if successful, False otherwise
         """
         try:
             # Find label with matching text
@@ -1593,12 +1593,288 @@ class SupersetAutomator:
             self.driver.save_screenshot("workflow_general_error.png")
             return False
         
-    def teardown(self) -> None:
-        """Close the browser and clean up resources."""
-        if self.driver:
-            logger.info("Closing browser...")
-            self.driver.quit()
-
+    def open_profile_for_applications(self) -> bool:
+        """
+        Click the 'Open Profile for Applications' button and set application dates.
+        Uses time-based logic to determine the opening time:
+        - If current time is before 8 PM: Set to 10 AM next day
+        - If current time is 8 PM or later: Set to 4 PM next day
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Use a longer timeout for this operation
+            long_wait = WebDriverWait(self.driver, 30)
+            
+            logger.info("Looking for 'Open Profile for Applications' button...")
+            
+            # Wait for the button to appear
+            open_button = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn-success') and contains(@ng-click, 'openOpenApplicationModal()')]"))
+            )
+            
+            # Scroll to make the button visible
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", open_button)
+            time.sleep(2)
+            
+            # Click the button
+            try:
+                logger.info("Clicking 'Open Profile for Applications' button...")
+                open_button.click()
+            except Exception as e:
+                logger.warning(f"Standard click failed: {e}")
+                self.driver.execute_script("arguments[0].click();", open_button)
+                
+            # Wait for the dialog window to appear
+            logger.info("Waiting for 'Open Applications' dialog...")
+            dialog = long_wait.until(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'modal-dialog')]"))
+            )
+            
+            # Determine the time to set based on current time
+            from datetime import datetime, timedelta
+            
+            # Get current date and time
+            current_time = datetime.now()
+            logger.info(f"Current time: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Calculate next day
+            next_day = current_time + timedelta(days=1)
+            
+            # Determine hours based on current time (before or after 8 PM)
+            if current_time.hour < 20:  # Before 8 PM
+                target_hour = 10
+                meridian = "AM"
+                logger.info("Setting application time to 10 AM next day")
+            else:  # 8 PM or later
+                target_hour = 4
+                meridian = "PM"
+                logger.info("Setting application time to 4 PM next day")
+                
+            # Set the hours
+            hours_input = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//input[@ng-model='hours']"))
+            )
+            hours_input.clear()
+            hours_input.send_keys(str(target_hour))
+            
+            # Set the minutes to 00
+            minutes_input = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//input[@ng-model='minutes']"))
+            )
+            minutes_input.clear()
+            minutes_input.send_keys("00")
+            
+            # Ensure meridian (AM/PM) is set correctly
+            meridian_button = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(@ng-click, 'toggleMeridian()')]"))
+            )
+            
+            # Check if we need to toggle meridian
+            current_meridian = meridian_button.text.strip()
+            if current_meridian != meridian:
+                logger.info(f"Toggling meridian from {current_meridian} to {meridian}")
+                meridian_button.click()
+            
+            # Set the date to next day
+            date_input = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//input[@ng-model='applicationDeadline']"))
+            )
+            
+            # Click calendar button
+            calendar_button = long_wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[@ng-click='showStartDateSelector = true']"))
+            )
+            calendar_button.click()
+              # Wait for calendar to appear
+            calendar = long_wait.until(
+                EC.presence_of_element_located((By.XPATH, "//table[contains(@class, 'uib-daypicker')]"))
+            )
+            
+            # Get tomorrow's date
+            next_day_num = next_day.day
+            current_month = current_time.month
+            next_day_month = next_day.month
+            
+            logger.info(f"Looking for date: {next_day_num} in the calendar")
+            
+            # Handle calendar implementation - need to find the active month's dates
+            # (not text-muted) and locate the one matching our target day
+            try:
+                # Try to find the date button that isn't text-muted (belongs to current month)
+                # and matches our target day number
+                calendar_day_buttons = self.driver.find_elements(By.XPATH, 
+                    "//table[contains(@class, 'uib-daypicker')]//button[not(contains(@class, 'text-muted'))]")
+                
+                # Log found days for debugging
+                logger.info(f"Found {len(calendar_day_buttons)} active day buttons in current month")
+                
+                next_day_element = None
+                for button in calendar_day_buttons:
+                    if button.text.strip() == str(next_day_num):
+                        next_day_element = button
+                        logger.info(f"Found matching day button with text: {button.text}")
+                        break
+                
+                # If we need to go to next month (if today is last day of month)
+                if next_day_element is None and current_month != next_day_month:
+                    logger.info("Target day not found in current month view, trying to navigate to next month")
+                    next_month_button = self.driver.find_element(By.XPATH, 
+                        "//button[contains(@class, 'uib-right')]")
+                    next_month_button.click()
+                    time.sleep(2)
+                    
+                    # Try again with next month view
+                    calendar_day_buttons = self.driver.find_elements(By.XPATH, 
+                        "//table[contains(@class, 'uib-daypicker')]//button[not(contains(@class, 'text-muted'))]")
+                    
+                    for button in calendar_day_buttons:
+                        if button.text.strip() == str(next_day_num):
+                            next_day_element = button
+                            logger.info(f"Found matching day button in next month with text: {button.text}")
+                            break
+                
+                if next_day_element is None:
+                    # As a fallback, try to find any button with the target day number
+                    fallback_xpath = f"//table[contains(@class, 'uib-daypicker')]//button[text()='{next_day_num}']"
+                    logger.warning(f"Could not find day in active month days, trying fallback: {fallback_xpath}")
+                    next_day_element = self.driver.find_element(By.XPATH, fallback_xpath)
+                
+                # Scroll to ensure the day element is in view
+                if next_day_element:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_day_element)
+                    time.sleep(1)
+                    next_day_element.click()
+                    logger.info(f"Clicked on day {next_day_num}")
+                else:
+                    raise Exception(f"Could not find day {next_day_num} in the calendar")
+                    
+            except Exception as e:
+                logger.error(f"Error selecting date in calendar: {e}")
+                # Take a screenshot of the calendar for debugging
+                self.driver.save_screenshot("calendar_selection_error.png")
+                
+                # Try a more generic approach as last resort
+                try:
+                    logger.info("Attempting alternative date selection approach")
+                    # Try to get any visible date button that might be valid
+                    visible_days = self.driver.find_elements(By.XPATH, 
+                        "//table[contains(@class, 'uib-daypicker')]//button[not(contains(@class, 'text-muted')) and not(contains(@class, 'disabled'))]")
+                    
+                    if visible_days and len(visible_days) > 0:
+                        # Click the first valid date we can find
+                        visible_days[0].click()
+                        logger.info(f"Clicked on alternative date with text: {visible_days[0].text}")
+                    else:
+                        logger.error("Could not find any valid date buttons in calendar")
+                        raise Exception("Calendar date selection failed")
+                except Exception as fallback_error:
+                    logger.error(f"Alternative date selection also failed: {fallback_error}")
+                    raise
+              # Wait for the date to be selected
+            time.sleep(2)
+            
+            # Click the "Open Applications" button - try multiple selectors for robustness
+            open_app_button_selectors = [
+                "//button[contains(@class, 'btn-primary') and contains(text(), 'Open for Applications')]",
+                "//button[contains(text(), 'Open Application') or contains(text(), 'Open for Applications')]",
+                "//div[contains(@class, 'modal-footer')]//button[contains(@class, 'btn-primary')]"
+            ]
+            
+            open_applications_button = None
+            for selector in open_app_button_selectors:
+                logger.info(f"Trying to find Open Applications button with: {selector}")
+                try:
+                    open_applications_button = long_wait.until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    if open_applications_button:
+                        logger.info(f"Found Open Applications button using: {selector}")
+                        break
+                except:
+                    logger.info(f"Open Applications button not found with: {selector}")
+            
+            if not open_applications_button:
+                logger.error("Could not find Open Applications button!")
+                self.driver.save_screenshot("missing_open_app_button.png")
+                return False
+                
+            # Scroll to ensure the button is in view
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", open_applications_button)
+            time.sleep(1)
+            
+            # Click the button with multiple fallback options
+            try:
+                logger.info("Clicking Open Applications button...")
+                open_applications_button.click()
+            except Exception as e:
+                logger.warning(f"Standard click failed: {e}")
+                try:
+                    logger.info("Attempting JavaScript click...")
+                    self.driver.execute_script("arguments[0].click();", open_applications_button)
+                except Exception as e2:
+                    logger.warning(f"JavaScript click failed: {e2}")
+                    # Try ActionChains as last resort
+                    from selenium.webdriver.common.action_chains import ActionChains
+                    actions = ActionChains(self.driver)
+                    actions.move_to_element(open_applications_button).click().perform()
+                    logger.info("Attempted click using ActionChains")
+            
+            # Wait for the operation to complete
+            logger.info("Waiting for applications to be opened...")
+            time.sleep(8)  # Wait longer to ensure the action completes
+            
+            # Check for success message or confirmation
+            success_indicators = [
+                "//div[contains(@class, 'toast-success')]",
+                "//div[contains(text(), 'successfully') or contains(text(), 'Successfully')]",
+                "//div[contains(@class, 'alert-success')]"
+            ]
+            
+            success_found = False
+            for indicator in success_indicators:
+                try:
+                    success_element = self.driver.find_element(By.XPATH, indicator)
+                    if success_element and success_element.is_displayed():
+                        logger.info(f"Found success indicator: {success_element.text}")
+                        success_found = True
+                        break
+                except:
+                    pass
+            
+            if success_found:
+                logger.info("Successfully opened profile for applications")
+            else:
+                # Even if we don't see a success message, check if the modal closed
+                try:
+                    dialog = self.driver.find_element(By.XPATH, "//div[contains(@class, 'modal-dialog')]")
+                    if dialog.is_displayed():
+                        logger.warning("Application dialog is still open - action may not have completed")
+                        self.driver.save_screenshot("open_app_dialog_still_open.png")
+                        # Try clicking again as a last resort
+                        try:
+                            buttons = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'modal-dialog')]//button[contains(@class, 'btn-primary')]")
+                            if buttons and len(buttons) > 0:
+                                buttons[0].click()
+                                logger.info("Made one more attempt to click the primary button in dialog")
+                                time.sleep(5)
+                        except:
+                            pass
+                except:
+                    logger.info("Dialog is no longer visible, which suggests the action completed")
+            
+            # Take a screenshot of the final state
+            self.driver.save_screenshot("open_applications_result.png")
+            
+            # If we made it this far without exceptions, consider it a success
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error opening profile for applications: {e}")
+            self.driver.save_screenshot("open_applications_error.png")
+            return False
+            
     def run(self, job_data: Optional[JobData] = None) -> bool:
         """
         Main execution flow for the automation process.
@@ -1735,6 +2011,13 @@ class SupersetAutomator:
                 return False
             logger.info("Hiring workflow set up successfully")
 
+            # Step 15: Open profile for applications
+            open_applications_success = self.open_profile_for_applications()
+            if not open_applications_success:
+                logger.error("Opening profile for applications failed")
+                return False
+            logger.info("Profile opened for applications successfully")
+
             logger.info("Job profile created successfully!")
             success = True
             
@@ -1750,7 +2033,16 @@ class SupersetAutomator:
             
         return success
 
-
+    def teardown(self) -> None:
+        """Close the browser and clean up resources."""
+        if hasattr(self, 'driver') and self.driver:
+            logger.info("Closing browser...")
+            try:
+                self.driver.quit()
+                logger.info("Browser closed successfully")
+            except Exception as e:
+                logger.error(f"Error closing browser: {e}")
+    
 def run_automation(url: str, username: str, password: str, headless: bool = False, **job_kwargs: Any) -> bool:
     """
     Helper function to run the automation with specified parameters.
