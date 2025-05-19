@@ -2309,6 +2309,7 @@ class SupersetAutomator:
         Returns:
             bool: True if job posting was successful, False otherwise
         """
+        logger.info("BROWSER : ", self.browser )
         if self.browser == "firefox":
             logger.info("Chose firefox...")
             return self.run_with_firefox(job_data)
