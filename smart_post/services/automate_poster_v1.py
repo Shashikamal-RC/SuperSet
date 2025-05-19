@@ -121,8 +121,8 @@ class SupersetAutomator:
     This class handles login, navigation, and form filling to automate
     the job posting process on the Superset platform.
     """
-
-    def __init__(self, url: str, username: str, password: str, headless: bool = False):
+    def __init__(self, url: str, username: str, password: str, headless: bool = False, 
+                 use_remote: bool = False, remote_url: str = "http://localhost:4444/wd/hub"):
         """
         Initialize the Superset automator.
         
@@ -131,34 +131,125 @@ class SupersetAutomator:
             username: The username for login
             password: The password for login
             headless: Whether to run the browser in headless mode
+            use_remote: Whether to use a remote WebDriver setup
+            remote_url: URL of the remote WebDriver if use_remote is True
         """
         self.url = url
         self.username = username
         self.password = password
         self.headless = headless
+        self.use_remote = use_remote
+        self.remote_url = remote_url
+        
+        # Auto-detect if we're running in a cloud/server environment
+        import os
+        import platform
+        if platform.system() == "Linux" and not os.path.isdir('/home/lenovo'):  # Not on your dev machine
+            # Automatically use remote mode in server environments
+            self.use_remote = True
+            
         self.driver = None
         self.wait = None
-        self.element_interaction = None
-
+        self.element_interaction = None    
+    
     def setup_driver(self) -> None:
         """Set up the WebDriver for browser automation."""
         try:
             logger.info("Setting up WebDriver...")
             options = webdriver.ChromeOptions()
+            
+            # Additional options for better compatibility, especially on Linux servers
             if self.headless:
                 options.add_argument("--headless=new")  # Modern headless mode
             options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")  # Required for Linux deployments
+            options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-setuid-sandbox")
             
-            self.driver = webdriver.Chrome(
-                service=ChromeService(ChromeDriverManager().install()), 
-                options=options
-            )
+            # If using remote webdriver (Selenium Grid, Docker, etc.)
+            if self.use_remote:
+                try:
+                    logger.info(f"Using remote WebDriver at {self.remote_url}")
+                    self.driver = webdriver.Remote(
+                        command_executor=self.remote_url,
+                        options=options
+                    )
+                    logger.info("Remote WebDriver connected successfully")
+                except Exception as remote_ex:
+                    logger.error(f"Failed to connect to remote WebDriver: {remote_ex}")
+                    # If remote fails, fallback to local attempts
+                    self.use_remote = False
             
+            if not self.use_remote:
+                # Local WebDriver setup attempts
+                try:
+                    # Try with WebDriver manager first
+                    try:
+                        from webdriver_manager.chrome import ChromeDriverManager
+                        from selenium.webdriver.chrome.service import Service as ChromeService
+                        
+                        logger.info("Using ChromeDriverManager for setup...")
+                        self.driver = webdriver.Chrome(
+                            service=ChromeService(ChromeDriverManager().install()), 
+                            options=options
+                        )
+                    except Exception as manager_ex:
+                        logger.warning(f"ChromeDriverManager failed: {manager_ex}")
+                        
+                        # Direct Chrome initialization without service specification
+                        logger.info("Trying direct Chrome initialization...")
+                        self.driver = webdriver.Chrome(options=options)
+                
+                except Exception as chrome_ex:
+                    logger.error(f"Standard Chrome initialization failed: {chrome_ex}")
+                    
+                    # Last resort - try specific paths on Linux systems
+                    import platform
+                    import os
+                    
+                    if platform.system() == "Linux":
+                        logger.info("Trying Linux-specific ChromeDriver paths...")
+                        possible_paths = [
+                            '/usr/bin/chromedriver',
+                            '/usr/local/bin/chromedriver',
+                            '/snap/bin/chromedriver',
+                            '/home/appuser/.local/bin/chromedriver'
+                        ]
+                        
+                        for path in possible_paths:
+                            if os.path.exists(path):
+                                logger.info(f"Found ChromeDriver at: {path}")
+                                try:
+                                    self.driver = webdriver.Chrome(
+                                        service=ChromeService(executable_path=path),
+                                        options=options
+                                    )
+                                    break
+                                except Exception as path_ex:
+                                    logger.warning(f"Failed with path {path}: {path_ex}")
+                        else:
+                            # If we get here, none of the paths worked
+                            raise Exception("No suitable ChromeDriver found on Linux system")
+                    else:
+                        # Re-raise the error on non-Linux systems
+                        raise chrome_ex
+            
+            # Setup wait and interaction objects
             self.wait = WebDriverWait(self.driver, 15)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
             logger.info("WebDriver setup completed successfully")
-        except WebDriverException as e:
+            
+        except Exception as e:
             logger.error(f"WebDriver setup failed: {e}")
+            # Look for common error patterns and provide more specific error information
+            error_str = str(e).lower()
+            if "permission denied" in error_str:
+                logger.error("Permission issue detected with ChromeDriver. Try: chmod +x /path/to/chromedriver")
+            elif "chromedriver" in error_str and "not found" in error_str:
+                logger.error("ChromeDriver not found. Install it with: apt-get install -y chromium-chromedriver")
+            elif "chrome failed to start" in error_str:
+                logger.error("Chrome failed to start. Make sure Chrome is installed: apt-get install -y chromium-browser")
             raise
 
     def login(self) -> bool:

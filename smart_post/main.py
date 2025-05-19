@@ -6,7 +6,18 @@ from datetime import datetime
 from services.gemini_extractor import extract_job_details
 from services.google_sheet_logger import log_job_data  # Using the new helper function
 from services.slack_notifier import send_slack_notification
-from services.automate_poster_v1 import JobData, SupersetAutomator
+from services.automate_poster_v1 import JobData, SupersetAutomator 
+
+# Try to import from the fixed version if available
+try:
+    from services.automate_poster_fixed import JobData as FixedJobData
+    from services.automate_poster_fixed import SupersetAutomator as FixedSupersetAutomator
+    USE_FIXED_VERSION = True
+    print("Using enhanced ChromeDriver compatibility version")
+except ImportError:
+    USE_FIXED_VERSION = False
+    print("Using original automation version")
+    
 import PyPDF2
 import docx
 
@@ -167,15 +178,56 @@ if st.session_state.job_data:
                 is_ai_generated=st.session_state.job_data["is_ai_generated"],
                 posted_by=st.session_state.job_data.get("posted_by", "Rishikesh"),
                 timestamp=st.session_state.job_data.get("timestamp", datetime.now())
-            )            # Job Posting Function
+            )
+              # Job Posting Function
             with st.spinner("Posting Job at SuperSet..."):
-                automator = SupersetAutomator(
-                    url="https://app.joinsuperset.com/",
-                    username="rishikesh@mesaschool.co",
-                    password="@Mesa2025",
-                    headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t")
-                )
-                posting_success = automator.run(job_data_obj)
+                try:
+                    # Use the enhanced version if available (better for deployed environments)
+                    if USE_FIXED_VERSION:
+                        # Create a new job data object using the fixed class
+                        fixed_job_data_obj = FixedJobData(
+                            company_name=job_data_obj.company_name,
+                            job_title=job_data_obj.job_title,
+                            location=job_data_obj.location,
+                            min_salary=job_data_obj.min_salary,
+                            max_salary=job_data_obj.max_salary,
+                            job_description=job_data_obj.job_description,
+                            job_function=job_data_obj.job_function,
+                            salary_breakup=job_data_obj.salary_breakup,
+                            is_ai_generated=job_data_obj.is_ai_generated,
+                            posted_by=job_data_obj.posted_by,
+                            timestamp=job_data_obj.timestamp
+                        )
+                        
+                        # Use the enhanced automator with remote WebDriver capability
+                        automator = FixedSupersetAutomator(
+                            url="https://app.joinsuperset.com/",
+                            username="rishikesh@mesaschool.co",
+                            password="@Mesa2025",
+                            headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t"),
+                            # Automatically detect if running in cloud environment
+                            use_remote=os.getenv("USE_REMOTE_WEBDRIVER", "False").lower() in ("true", "1", "t")
+                        )
+                        posting_success = automator.run(fixed_job_data_obj)
+                    else:
+                        # Use original implementation
+                        automator = SupersetAutomator(
+                            url="https://app.joinsuperset.com/",
+                            username="rishikesh@mesaschool.co",
+                            password="@Mesa2025",
+                            headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t")
+                        )
+                        posting_success = automator.run(job_data_obj)
+                    
+                except Exception as e:
+                    st.error(f"❌ Error setting up automation: {str(e)}")
+                    st.error("This might be due to missing browser dependencies on the server.")
+                    if "linux" in str(e).lower() or "chromedriver" in str(e).lower():
+                        st.info("💡 Tip: Make sure Chrome and required libraries are installed on the server.")
+                        st.info("Please run these commands on the server:")
+                        st.code("sudo apt update && sudo apt install -y chromium-browser libglib2.0-0 libnss3 libgconf-2-4 libfontconfig1 chromium-chromedriver")
+                        st.info("Then ensure the chromedriver executable is in the PATH or one of the common locations.")
+                    posting_success = False
                 
             # Check posting status and proceed accordingly
             if posting_success:
