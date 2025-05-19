@@ -13,6 +13,9 @@ from typing import Dict, Optional, Tuple, Union, Any
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -124,7 +127,7 @@ class SupersetAutomator:
     the job posting process on the Superset platform.
     """
 
-    def __init__(self, url: str, username: str, password: str, headless: bool = False):
+    def __init__(self, url: str, username: str, password: str, headless: bool = False, browser: str = "chrome"):
         """
         Initialize the Superset automator.
         
@@ -141,6 +144,7 @@ class SupersetAutomator:
         self.driver = None
         self.wait = None
         self.element_interaction = None
+        self.browser = browser.lower()
 
     def setup_driver_v1(self) -> None:
         """Set up the WebDriver for browser automation."""
@@ -207,6 +211,61 @@ class SupersetAutomator:
         except Exception as e:
             logger.error(f"Unexpected error in automation process: {e}")
             raise       
+    
+    def setup_driver_firefox(self) -> None:
+        """Set up the Firefox WebDriver for browser automation."""
+        try:
+            logger.info("Setting up Firefox WebDriver...")
+            
+            # Configure Firefox options
+            options = FirefoxOptions()
+            
+            if self.headless:
+                logger.info("Using headless mode")
+                options.add_argument("--headless")
+                
+            # Add additional Firefox-specific options for stability
+            options.add_argument("--width=1920")
+            options.add_argument("--height=1080")
+            options.set_preference("intl.accept_languages", "en-US, en")
+            options.set_preference("browser.download.folderList", 2)
+            options.set_preference("browser.download.manager.showWhenStarting", False)
+            
+            # Set logging level
+            options.log.level = "trace"  # Available levels: trace, debug, config, info, warn, error, fatal
+            
+            try:
+                # Use webdriver_manager to handle driver installation
+                logger.info("Using GeckoDriverManager to install Firefox driver")
+                self.driver = webdriver.Firefox(
+                    service=FirefoxService(GeckoDriverManager().install()),
+                    options=options
+                )
+                logger.info("Firefox WebDriver initialized with GeckoDriverManager")
+            except Exception as gecko_ex:
+                logger.warning(f"GeckoDriverManager failed: {gecko_ex}")
+                
+                # Fallback to system installed geckodriver if available
+                logger.info("Attempting to use system installed geckodriver")
+                self.driver = webdriver.Firefox(options=options)
+                logger.info("Firefox WebDriver initialized with system geckodriver")
+            
+            # Set up wait and interaction helpers
+            self.wait = WebDriverWait(self.driver, 15)
+            self.element_interaction = ElementInteraction(self.driver, self.wait)
+            
+            # Set window size explicitly if not headless
+            if not self.headless:
+                self.driver.set_window_size(1920, 1080)
+                
+            logger.info("Firefox WebDriver setup completed successfully")
+            
+        except WebDriverException as e:
+            logger.error(f"Firefox WebDriver setup failed: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error setting up Firefox WebDriver: {e}")
+            raise
          
     def login(self) -> bool:
         """
@@ -2080,6 +2139,181 @@ class SupersetAutomator:
             
         return success
 
+    def run_with_firefox(self, job_data: Optional[JobData] = None) -> bool:
+        """
+        Main execution flow for the automation process using Firefox WebDriver instead of Chrome.
+        
+        Args:
+            job_data: JobData object containing information to fill in the form
+            
+        Returns:
+            bool: True if job posting was successful, False otherwise
+        """
+        if job_data is None:
+            job_data = JobData(
+                company_name="Mercedes Benz",
+                job_title="Full Stack Developer"
+            )
+            
+        success = False
+            
+        try:
+            # Use Firefox WebDriver instead of Chrome
+            self.setup_driver_firefox()
+            login_success = self.login()
+            
+            if not login_success:
+                logger.error("Login failed, cannot proceed with automation")
+                return False
+                
+            logger.info("Login successful, proceeding with placement selection")
+            placement_success = self.select_placement_option()
+            
+            if not placement_success:
+                logger.error("Placement selection failed, cannot proceed with job posting")
+                return False
+                
+            logger.info("Placement selection successful, proceeding with job posting")
+            
+            # Step 1: Fill company data
+            company_name_success = self.fill_company_data(job_data.company_name)
+            if not company_name_success:
+                logger.error("Company data filling failed")
+                return False
+                
+            # Step 2: Fill job profile title
+            job_title_success = self.fill_job_profile_title(job_data.job_title)
+            if not job_title_success:
+                logger.error("Job title filling failed")
+                return False
+                
+            # Step 3: Fill job profile source
+            job_profile_source_success = self.fill_job_profile_source()
+            if not job_profile_source_success:
+                logger.error("Job profile source filling failed")
+                return False
+                
+            # Step 4: Fill job location
+            job_location_success = self.fill_job_location(job_data.location)
+            if not job_location_success:
+                logger.error("Job location filling failed")
+                return False
+            logger.info("Job location filled successfully")
+            
+            # Step 5: Fill position type
+            position_type_success = self.fill_position_type()
+            if not position_type_success:
+                logger.error("Position type filling failed")
+                return False
+            logger.info("Position type filled successfully")
+            
+            # Step 6: Fill job function
+            job_function_success = self.fill_job_function(job_data.job_function)
+            if not job_function_success:
+                logger.error("Job function filling failed")
+                return False
+            logger.info("Job function filled successfully")
+            
+            # Step 7: Fill category
+            fill_category_success = self.fill_category()
+            if not fill_category_success:
+                logger.error("Category filling failed")
+                return False
+            logger.info("Category filled successfully")
+            
+            # Step 8: Add CTC details
+            ctc_details_success = self.add_ctc_details(job_data.min_salary, job_data.max_salary)
+            if not ctc_details_success:
+                logger.error("CTC details filling failed")
+                return False
+            logger.info("CTC details added successfully")
+            
+            # Step 9: Check equity checkbox
+            equity_check_success = self.click_is_equity_checkbox()
+            if not equity_check_success:
+                logger.error("Equity checkbox clicking failed")
+                return False
+            logger.info("Equity checked successfully")
+            
+            # Step 10: Fill CTC breakdown field
+            ctc_breakdown_success = self.fill_tinymce_field_by_label("Salary break-up / Additional Compensation", job_data.salary_breakup)
+            if not ctc_breakdown_success:
+                logger.error("CTC breakdown filling failed")
+                return False
+            logger.info("Salary breakdown added successfully")
+            
+            # Step 11: Fill job description field
+            jd_success = self.fill_tinymce_field_by_label("Job Description", job_data.job_description)
+            if not jd_success:
+                logger.error("Job description filling failed")
+                return False
+            logger.info("Job description added successfully")
+            
+            # Final step: Create and confirm job profile
+            create_and_confirm_success = self.click_create_and_confirm()
+            if not create_and_confirm_success:
+                logger.error("Job creation confirmation failed")
+                return False
+            
+            # Step 12: Select applicable courses
+            applicable_courses_success = self.select_applicable_courses()
+            if not applicable_courses_success:
+                logger.error("Applicable courses selection failed")
+                return False
+            logger.info("Applicable courses selected successfully")
+            
+            # Step 13: Set eligibility criteria
+            eligibility_criteria_success = self.set_eligibility_criteria()
+            if not eligibility_criteria_success:
+                logger.error("Eligibility criteria setup failed")
+                return False
+            logger.info("Eligibility criteria set successfully")
+            
+            # Step 14: Setup hiring workflow
+            hiring_workflow_success = self.setup_hiring_workflow()
+            if not hiring_workflow_success:
+                logger.error("Hiring workflow setup failed")
+                return False
+            logger.info("Hiring workflow set up successfully")
+
+            # Step 15: Open profile for applications
+            open_applications_success = self.open_profile_for_applications()
+            if not open_applications_success:
+                logger.error("Opening profile for applications failed")
+                return False
+            logger.info("Profile opened for applications successfully")
+
+            logger.info("Job profile created successfully!")
+            success = True
+            
+            # Wait for a moment to see the final state
+            time.sleep(10)
+            
+        except Exception as e:
+            logger.exception(f"Unexpected error in automation process: {e}")
+            success = False
+        finally:
+            # Uncomment the following line in production to close the browser
+            self.teardown()
+            
+        return success
+
+    def run_with_browser(self, job_data: Optional[JobData] = None) -> bool:
+        """
+        Main execution flow for the automation process, allowing browser selection.
+        
+        Args:
+            browser: Browser to use ("chrome" or "firefox")
+            job_data: JobData object containing information to fill in the form
+            
+        Returns:
+            bool: True if job posting was successful, False otherwise
+        """
+        if self.browser == "firefox":
+            return self.run_with_firefox(job_data)
+        else:
+            return self.run(job_data)
+
     def teardown(self) -> None:
         """Close the browser and clean up resources."""
         if hasattr(self, 'driver') and self.driver:
@@ -2090,7 +2324,7 @@ class SupersetAutomator:
             except Exception as e:
                 logger.error(f"Error closing browser: {e}")
     
-def run_automation(url: str, username: str, password: str, headless: bool = False, **job_kwargs: Any) -> bool:
+def run_automation(url: str, username: str, password: str, headless: bool = False, browser: str = "chrome", **job_kwargs: Any) -> bool:
     """
     Helper function to run the automation with specified parameters.
     
@@ -2105,8 +2339,9 @@ def run_automation(url: str, username: str, password: str, headless: bool = Fals
         bool: True if job posting was successful, False otherwise
     """
     job_data = JobData(**job_kwargs) if job_kwargs else None
-    automator = SupersetAutomator(url, username, password, headless)
-    return automator.run(job_data)
+    automator = SupersetAutomator(url, username, password, headless, browser=browser)
+    return automator.run_with_browser(job_data=job_data)
+    # return automator.run(job_data)
 
 
 if __name__ == "__main__":
@@ -2116,6 +2351,7 @@ if __name__ == "__main__":
         username="rishikesh@mesaschool.co",
         password="@Mesa2025",
         headless=False,  # Set True to run without opening the browser window
+        browser="chrome",  # or "firefox"
         company_name="Mercedes Benz",
         job_title="Full Stack Developer"
     )

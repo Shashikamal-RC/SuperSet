@@ -175,7 +175,8 @@ if st.session_state.job_data:
                     url="https://app.joinsuperset.com/",
                     username="rishikesh@mesaschool.co",
                     password="@Mesa2025",
-                    headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t")
+                    headless=os.getenv("HEADLESS", "False").lower() in ("true", "1", "t"),
+                    browser=os.getenv("BROWSER", "chrome").lower(),
                 )
                 success = automator.run(job_data_obj)
                 
