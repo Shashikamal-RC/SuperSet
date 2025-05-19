@@ -147,7 +147,7 @@ class SupersetAutomator:
             options = webdriver.ChromeOptions()
             
             if self.headless:
-                options.add_argument("--headless=new")  # Modern headless mode
+                options.add_argument("--headless")  # Modern headless mode
             options.add_argument("--disable-gpu")
             
             self.driver = webdriver.Chrome(
