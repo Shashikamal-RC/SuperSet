@@ -26,6 +26,8 @@ from selenium.common.exceptions import (
 )
 from webdriver_manager.chrome import ChromeDriverManager
 
+from chromedriver_autoinstaller import install
+import shutil
 
 # Configure logging
 logger = logging.getLogger("superset_automator")
@@ -164,6 +166,45 @@ class SupersetAutomator:
             logger.error(f"WebDriver setup failed: {e}")
             raise
 
+    def setup_driver(self) -> None:
+        """Set up the WebDriver for browser automation."""
+        try:
+            logger.info("Setting up WebDriver...")
+
+            options = webdriver.ChromeOptions()
+
+            if self.headless:
+                options.add_argument("--headless=new")
+
+            # Essential for running in headless environments like Streamlit Cloud
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+
+            # Try to find chromium binary
+            chromium_path = shutil.which("chromium") or shutil.which("chromium-browser")
+            if not chromium_path:
+                raise FileNotFoundError("Chromium binary not found in system path.")
+
+            options.binary_location = chromium_path
+
+            # Auto install matching ChromeDriver
+            chromedriver_path = install()
+
+            self.driver = webdriver.Chrome(
+                service=ChromeService(executable_path=chromedriver_path),
+                options=options
+            )
+
+            self.wait = WebDriverWait(self.driver, 15)
+            self.element_interaction = ElementInteraction(self.driver, self.wait)
+
+            logger.info("WebDriver setup completed successfully")
+
+        except WebDriverException as e:
+            logger.error(f"WebDriver setup failed: {e}")
+            raise
+        
     def login(self) -> bool:
         """
         Attempt to login to the Superset platform.
