@@ -153,9 +153,19 @@ class SupersetAutomator:
             options.add_argument("--disable-gpu")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-infobars")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--start-maximized")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--remote-debugging-port=9222")
 
             # Optional: Specify binary location for Chromium (used in Streamlit Cloud, Docker, etc.)
-            options.binary_location = "/usr/bin/chromium"  # Adjust if you're using a different path
+            # Try both commonly used paths
+            import os
+            if os.path.exists("/usr/bin/chromium-browser"):
+                options.binary_location = "/usr/bin/chromium-browser"
+            elif os.path.exists("/usr/bin/chromium"):
+                options.binary_location = "/usr/bin/chromium"
 
             self.driver = webdriver.Chrome(
                 service=ChromeService(ChromeDriverManager().install()),
