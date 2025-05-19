@@ -142,7 +142,7 @@ class SupersetAutomator:
         self.wait = None
         self.element_interaction = None
 
-    def setup_driver(self) -> None:
+    def setup_driver_v1(self) -> None:
         """Set up the WebDriver for browser automation."""
         try:
             logger.info("Setting up WebDriver...")
@@ -176,20 +176,19 @@ class SupersetAutomator:
             if self.headless:
                 options.add_argument("--headless=new")
 
-            # Essential for running in headless environments like Streamlit Cloud
             options.add_argument("--disable-gpu")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
 
-            # Try to find chromium binary
+            # Locate chromium binary
             chromium_path = shutil.which("chromium") or shutil.which("chromium-browser")
             if not chromium_path:
                 raise FileNotFoundError("Chromium binary not found in system path.")
 
             options.binary_location = chromium_path
 
-            # Auto install matching ChromeDriver
-            chromedriver_path = install()
+            # Install chromedriver to a writable path (like /tmp)
+            chromedriver_path = install(path="/tmp")
 
             self.driver = webdriver.Chrome(
                 service=ChromeService(executable_path=chromedriver_path),
@@ -204,7 +203,11 @@ class SupersetAutomator:
         except WebDriverException as e:
             logger.error(f"WebDriver setup failed: {e}")
             raise
-        
+
+        except Exception as e:
+            logger.error(f"Unexpected error in automation process: {e}")
+            raise       
+         
     def login(self) -> bool:
         """
         Attempt to login to the Superset platform.
