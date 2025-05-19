@@ -145,41 +145,21 @@ class SupersetAutomator:
         try:
             logger.info("Setting up WebDriver...")
             options = webdriver.ChromeOptions()
-
             if self.headless:
                 options.add_argument("--headless=new")  # Modern headless mode
-
-            # Crucial options for headless environments
             options.add_argument("--disable-gpu")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-infobars")
-            options.add_argument("--disable-extensions")
-            options.add_argument("--start-maximized")
-            options.add_argument("--window-size=1920,1080")
-            options.add_argument("--remote-debugging-port=9222")
-
-            # Optional: Specify binary location for Chromium (used in Streamlit Cloud, Docker, etc.)
-            # Try both commonly used paths
-            import os
-            if os.path.exists("/usr/bin/chromium-browser"):
-                options.binary_location = "/usr/bin/chromium-browser"
-            elif os.path.exists("/usr/bin/chromium"):
-                options.binary_location = "/usr/bin/chromium"
-
+            
             self.driver = webdriver.Chrome(
-                service=ChromeService(ChromeDriverManager().install()),
+                service=ChromeService(ChromeDriverManager().install()), 
                 options=options
             )
-
+            
             self.wait = WebDriverWait(self.driver, 15)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
             logger.info("WebDriver setup completed successfully")
-
         except WebDriverException as e:
             logger.error(f"WebDriver setup failed: {e}")
             raise
-
 
     def login(self) -> bool:
         """
