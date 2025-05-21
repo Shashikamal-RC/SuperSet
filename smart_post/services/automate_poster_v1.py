@@ -439,7 +439,11 @@ class SupersetAutomator:
             bool: True if company added successfully, False otherwise
         """
         try:
-            no_match_message = self.driver.find_element(By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]")
+            # no_match_message = self.driver.find_element(By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]")
+            no_match_message = self.wait.until(
+                EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]"))
+            )
+                    
             if no_match_message.is_displayed():
                 logger.info("No matching companies found. Adding a new company...")
         
