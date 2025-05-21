@@ -158,7 +158,8 @@ class SupersetAutomator:
             options.add_argument("--disable-gpu")
             
             self.driver = webdriver.Chrome(
-                service=ChromeService(ChromeDriverManager().install()), 
+                # INFO: Using default chrome driver already installed in the system
+                # service=ChromeService(ChromeDriverManager().install()), 
                 options=options
             )
             
