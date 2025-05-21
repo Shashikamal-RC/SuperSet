@@ -162,7 +162,7 @@ class SupersetAutomator:
             
             self.driver = webdriver.Chrome(options=options)
             
-            self.wait = WebDriverWait(self.driver, 15)
+            self.wait = WebDriverWait(self.driver, 20)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
             logger.info("WebDriver setup completed successfully")
         except WebDriverException as e:
@@ -514,48 +514,53 @@ class SupersetAutomator:
     def select_company(self, company_name: str = "Mercedes Benz") -> bool:
         """
         Select a company from the dropdown.
-        
+
         Args:
             company_name: Name of the company to select
-            
+
         Returns:
             bool: True if selection successful, False otherwise
         """
         try:
             logger.info(f"Typing company name: {company_name}")
 
-            # Locate the search box
+            # Locate and click the input to ensure focus
             company_input = self.wait.until(
-                EC.presence_of_element_located((By.ID, "campus_placement"))
+                EC.element_to_be_clickable((By.ID, "campus_placement"))
             )
+            company_input.click()
             company_input.clear()
             company_input.send_keys(company_name)
-            time.sleep(1.5)  # Wait for debounce and dropdown render
 
-            # Wait for the dropdown list to appear
-            logger.info("Waiting for company suggestions...")
+            # Wait for dropdown to become visible
+            logger.info("Waiting for company suggestions dropdown...")
+            self.wait.until(
+                EC.visibility_of_element_located((By.XPATH, "//ul[contains(@class, 'dropdown-menu')]"))
+            )
+
+            # Wait for visible suggestions
             suggestions = self.wait.until(
-                EC.presence_of_all_elements_located(
+                EC.visibility_of_all_elements_located(
                     (By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
                 )
             )
 
-            # Select the first matching result
             for suggestion in suggestions:
                 if company_name.lower() in suggestion.text.lower():
                     logger.info(f"Selecting company: {suggestion.text}")
                     suggestion.click()
                     return True
-            
+
             logger.warning(f"No matching company found for '{company_name}'")
             return False
-            
+
         except TimeoutException:
             logger.error("Timeout while waiting for company suggestions.")
             return False
         except Exception as e:
             logger.error(f"Error during company selection: {str(e)}")
             return False
+
 
     def fill_company_data(self, company_name: str) -> bool:
         """
