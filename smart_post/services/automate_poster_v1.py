@@ -511,58 +511,56 @@ class SupersetAutomator:
         
         return False
 
-    def select_company(self, company_name):
-        logger.info(f"Typing company name: {company_name}")
-        company_input = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.ID, "company-name-input"))
-        )
-        company_input.clear()
-        company_input.send_keys(company_name)
+    def select_company(self, company_name: str = "Mercedes Benz") -> bool:
+        """
+        Select a company from the dropdown.
 
-        logger.info("Waiting for typeahead dropdown to appear...")
-        found = False
+        Args:
+            company_name: Name of the company to select
 
-        for attempt in range(1, 5):
-            time.sleep(1)  # Give time for suggestions to load
-            try:
-                suggestions = self.driver.find_elements(By.CSS_SELECTOR, 'ul.dropdown-menu[role="listbox"] li')
+        Returns:
+            bool: True if selection successful, False otherwise
+        """
+        try:
+            logger.info(f"Typing company name: {company_name}")
 
-                logger.info(f"Dropdown attempt {attempt}: Found {len(suggestions)} suggestions")
-                for suggestion in suggestions:
-                    try:
-                        title = suggestion.get_attribute("title") or ""
-                        text = suggestion.text or ""
-                        outer_html = suggestion.get_attribute("outerHTML")
+            # Locate and click the input to ensure focus
+            company_input = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "campus_placement"))
+            )
+            company_input.click()
+            company_input.clear()
+            company_input.send_keys(company_name)
 
-                        logger.info(f"Suggestion raw HTML: {outer_html}")
-                        logger.info(f"Suggestion title attr: {title}")
-                        logger.info(f"Suggestion visible text: {text}")
+            # Wait for dropdown to become visible
+            logger.info("Waiting for company suggestions dropdown...")
+            self.wait.until(
+                EC.visibility_of_element_located((By.XPATH, "//ul[contains(@class, 'dropdown-menu')]"))
+            )
 
-                        # Normalize for matching (remove dashes/spaces, lowercase)
-                        normalized_target = company_name.lower().replace("-", "").replace(" ", "")
-                        normalized_title = title.lower().replace("-", "").replace(" ", "")
-                        normalized_text = text.lower().replace("-", "").replace(" ", "")
+            # Wait for visible suggestions
+            suggestions = self.wait.until(
+                EC.visibility_of_all_elements_located(
+                    (By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
+                )
+            )
 
-                        if normalized_target in normalized_title or normalized_target in normalized_text:
-                            logger.info(f"Match found: Clicking on suggestion: {text or title}")
-                            suggestion.click()
-                            found = True
-                            break
-                    except Exception as e:
-                        logger.warning(f"Error checking suggestion: {e}")
+            for suggestion in suggestions:
+                if company_name.lower() in suggestion.text.lower():
+                    logger.info(f"Selecting company: {suggestion.text}")
+                    suggestion.click()
+                    return True
 
-                if found:
-                    break
-
-            except Exception as e:
-                logger.warning(f"Error finding suggestions on attempt {attempt}: {e}")
-
-        if not found:
             logger.warning(f"No matching company found for '{company_name}'")
-            logger.info("Company selection failed.")
-            raise Exception("Company data filling failed")
+            return False
 
-        logger.info("Company selected successfully.")
+        except TimeoutException:
+            logger.error("Timeout while waiting for company suggestions.")
+            return False
+        except Exception as e:
+            logger.error(f"Error during company selection: {str(e)}")
+            return False
+
 
     def fill_company_data(self, company_name: str) -> bool:
         """
