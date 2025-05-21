@@ -511,63 +511,58 @@ class SupersetAutomator:
         
         return False
 
-    def select_company(self, company_name: str = "Mercedes Benz") -> bool:
-        """
-        Select a company from the AngularJS typeahead dropdown.
-        """
-        try:
-            logger.info(f"Typing company name: {company_name}")
+    def select_company(driver, company_name):
+        logger.info(f"Typing company name: {company_name}")
+        company_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "company-name-input"))
+        )
+        company_input.clear()
+        company_input.send_keys(company_name)
 
-            # Step 1: Input the company name
-            company_input = self.wait.until(
-                EC.element_to_be_clickable((By.ID, "campus_placement"))
-            )
-            company_input.click()
-            company_input.clear()
-            company_input.send_keys(company_name)
+        logger.info("Waiting for typeahead dropdown to appear...")
+        found = False
 
-            # Optional: Pause for Angular debounce (adjust if needed)
-            time.sleep(2)  # <-- Increase this slightly if debounce is slow
+        for attempt in range(1, 5):
+            time.sleep(1)  # Give time for suggestions to load
+            try:
+                suggestions = driver.find_elements(By.CSS_SELECTOR, 'ul.dropdown-menu[role="listbox"] li')
 
-            logger.info("Waiting for typeahead dropdown to appear...")
-
-            # Step 2: Wait for at least one suggestion item to appear
-            self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//ul[contains(@class, 'dropdown-menu') and @role='listbox']")
-                )
-            )
-
-            self.wait.until(
-                EC.presence_of_all_elements_located(
-                    (By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
-                )
-            )
-
-            # Step 3: Retry up to 3 times to ensure dropdown is populated
-            retries = 3
-            for attempt in range(retries):
-                suggestions = self.driver.find_elements(By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
-                logger.info(f"Dropdown attempt {attempt + 1}: Found {len(suggestions)} suggestions")
+                logger.info(f"Dropdown attempt {attempt}: Found {len(suggestions)} suggestions")
                 for suggestion in suggestions:
-                    title = suggestion.get_attribute("title")
-                    logger.debug(f"Suggestion title: {title}")
-                    if company_name.lower() in title.lower():
-                        logger.info(f"Selecting company: {title}")
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", suggestion)
-                        suggestion.click()
-                        return True
-                time.sleep(1)  # Wait a bit and retry
+                    try:
+                        title = suggestion.get_attribute("title") or ""
+                        text = suggestion.text or ""
+                        outer_html = suggestion.get_attribute("outerHTML")
 
+                        logger.info(f"Suggestion raw HTML: {outer_html}")
+                        logger.info(f"Suggestion title attr: {title}")
+                        logger.info(f"Suggestion visible text: {text}")
+
+                        # Normalize for matching (remove dashes/spaces, lowercase)
+                        normalized_target = company_name.lower().replace("-", "").replace(" ", "")
+                        normalized_title = title.lower().replace("-", "").replace(" ", "")
+                        normalized_text = text.lower().replace("-", "").replace(" ", "")
+
+                        if normalized_target in normalized_title or normalized_target in normalized_text:
+                            logger.info(f"Match found: Clicking on suggestion: {text or title}")
+                            suggestion.click()
+                            found = True
+                            break
+                    except Exception as e:
+                        logger.warning(f"Error checking suggestion: {e}")
+
+                if found:
+                    break
+
+            except Exception as e:
+                logger.warning(f"Error finding suggestions on attempt {attempt}: {e}")
+
+        if not found:
             logger.warning(f"No matching company found for '{company_name}'")
-            return False
+            logger.info("Company selection failed.")
+            raise Exception("Company data filling failed")
 
-        except TimeoutException:
-            logger.error("Timeout while waiting for company suggestions.")
-            return False
-        except Exception as e:
-            logger.error(f"Error during company selection: {str(e)}")
-            return False
+        logger.info("Company selected successfully.")
 
     def fill_company_data(self, company_name: str) -> bool:
         """
