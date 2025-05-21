@@ -513,7 +513,7 @@ class SupersetAutomator:
 
     def select_company(self, company_name: str = "Mercedes Benz") -> bool:
         """
-        Select a company from the dropdown.
+        Select a company from the AngularJS typeahead dropdown.
 
         Args:
             company_name: Name of the company to select
@@ -524,7 +524,7 @@ class SupersetAutomator:
         try:
             logger.info(f"Typing company name: {company_name}")
 
-            # Locate and click the input to ensure focus
+            # Click and enter company name in input
             company_input = self.wait.until(
                 EC.element_to_be_clickable((By.ID, "campus_placement"))
             )
@@ -532,22 +532,28 @@ class SupersetAutomator:
             company_input.clear()
             company_input.send_keys(company_name)
 
-            # Wait for dropdown to become visible
-            logger.info("Waiting for company suggestions dropdown...")
+            # Wait for dropdown <ul> to appear and contain at least one <li>
+            logger.info("Waiting for typeahead dropdown to appear...")
             self.wait.until(
-                EC.visibility_of_element_located((By.XPATH, "//ul[contains(@class, 'dropdown-menu')]"))
+                EC.presence_of_element_located(
+                    (By.XPATH, "//ul[contains(@class, 'dropdown-menu') and @role='listbox']")
+                )
             )
 
-            # Wait for visible suggestions
-            suggestions = self.wait.until(
-                EC.visibility_of_all_elements_located(
+            self.wait.until(
+                EC.presence_of_all_elements_located(
                     (By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
                 )
             )
 
+            # Get all dropdown suggestions
+            suggestions = self.driver.find_elements(By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
+
             for suggestion in suggestions:
-                if company_name.lower() in suggestion.text.lower():
-                    logger.info(f"Selecting company: {suggestion.text}")
+                title = suggestion.get_attribute("title")
+                if company_name.lower() in title.lower():
+                    logger.info(f"Selecting company: {title}")
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", suggestion)
                     suggestion.click()
                     return True
 
