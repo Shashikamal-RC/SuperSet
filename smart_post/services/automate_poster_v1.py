@@ -514,17 +514,11 @@ class SupersetAutomator:
     def select_company(self, company_name: str = "Mercedes Benz") -> bool:
         """
         Select a company from the AngularJS typeahead dropdown.
-
-        Args:
-            company_name: Name of the company to select
-
-        Returns:
-            bool: True if selection successful, False otherwise
         """
         try:
             logger.info(f"Typing company name: {company_name}")
 
-            # Click and enter company name in input
+            # Step 1: Input the company name
             company_input = self.wait.until(
                 EC.element_to_be_clickable((By.ID, "campus_placement"))
             )
@@ -532,8 +526,12 @@ class SupersetAutomator:
             company_input.clear()
             company_input.send_keys(company_name)
 
-            # Wait for dropdown <ul> to appear and contain at least one <li>
+            # Optional: Pause for Angular debounce (adjust if needed)
+            time.sleep(2)  # <-- Increase this slightly if debounce is slow
+
             logger.info("Waiting for typeahead dropdown to appear...")
+
+            # Step 2: Wait for at least one suggestion item to appear
             self.wait.until(
                 EC.presence_of_element_located(
                     (By.XPATH, "//ul[contains(@class, 'dropdown-menu') and @role='listbox']")
@@ -546,16 +544,20 @@ class SupersetAutomator:
                 )
             )
 
-            # Get all dropdown suggestions
-            suggestions = self.driver.find_elements(By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
-
-            for suggestion in suggestions:
-                title = suggestion.get_attribute("title")
-                if company_name.lower() in title.lower():
-                    logger.info(f"Selecting company: {title}")
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", suggestion)
-                    suggestion.click()
-                    return True
+            # Step 3: Retry up to 3 times to ensure dropdown is populated
+            retries = 3
+            for attempt in range(retries):
+                suggestions = self.driver.find_elements(By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
+                logger.info(f"Dropdown attempt {attempt + 1}: Found {len(suggestions)} suggestions")
+                for suggestion in suggestions:
+                    title = suggestion.get_attribute("title")
+                    logger.debug(f"Suggestion title: {title}")
+                    if company_name.lower() in title.lower():
+                        logger.info(f"Selecting company: {title}")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", suggestion)
+                        suggestion.click()
+                        return True
+                time.sleep(1)  # Wait a bit and retry
 
             logger.warning(f"No matching company found for '{company_name}'")
             return False
@@ -566,7 +568,6 @@ class SupersetAutomator:
         except Exception as e:
             logger.error(f"Error during company selection: {str(e)}")
             return False
-
 
     def fill_company_data(self, company_name: str) -> bool:
         """
