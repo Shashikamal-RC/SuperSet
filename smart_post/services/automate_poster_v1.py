@@ -152,9 +152,8 @@ class SupersetAutomator:
             logger.info("Setting up WebDriver...")
             options = webdriver.ChromeOptions()
             
-            # if self.headless:
-            
-            options.add_argument("--headless")  # Modern headless mode
+            if self.headless:    
+                options.add_argument("--headless")  # Modern headless mode
 
             options.add_argument("--disable-gpu")
             
@@ -2000,7 +1999,7 @@ class SupersetAutomator:
         success = False
             
         try:
-            self.setup_driver()
+            self.setup_driver_v1()
             login_success = self.login()
             
             if not login_success:
