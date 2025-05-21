@@ -152,16 +152,15 @@ class SupersetAutomator:
             logger.info("Setting up WebDriver...")
             options = webdriver.ChromeOptions()
             
+            options.add_argument("--headless")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            
             if self.headless:    
                 options.add_argument("--headless")  # Modern headless mode
-
-            options.add_argument("--disable-gpu")
             
-            self.driver = webdriver.Chrome(
-                # INFO: Using default chrome driver already installed in the system
-                # service=ChromeService(ChromeDriverManager().install()), 
-                options=options
-            )
+            self.driver = webdriver.Chrome(options=options)
             
             self.wait = WebDriverWait(self.driver, 15)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
