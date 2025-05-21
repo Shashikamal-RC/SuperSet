@@ -511,9 +511,9 @@ class SupersetAutomator:
         
         return False
 
-    def select_company(driver, company_name):
+    def select_company(self, company_name):
         logger.info(f"Typing company name: {company_name}")
-        company_input = WebDriverWait(driver, 10).until(
+        company_input = WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.ID, "company-name-input"))
         )
         company_input.clear()
@@ -525,7 +525,7 @@ class SupersetAutomator:
         for attempt in range(1, 5):
             time.sleep(1)  # Give time for suggestions to load
             try:
-                suggestions = driver.find_elements(By.CSS_SELECTOR, 'ul.dropdown-menu[role="listbox"] li')
+                suggestions = self.driver.find_elements(By.CSS_SELECTOR, 'ul.dropdown-menu[role="listbox"] li')
 
                 logger.info(f"Dropdown attempt {attempt}: Found {len(suggestions)} suggestions")
                 for suggestion in suggestions:
