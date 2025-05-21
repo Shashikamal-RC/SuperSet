@@ -152,7 +152,9 @@ class SupersetAutomator:
             logger.info("Setting up WebDriver...")
             options = webdriver.ChromeOptions()
             
-            options.add_argument("--headless")
+            if self.headless:
+                options.add_argument("--headless")
+    
             options.add_argument("--disable-gpu")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
@@ -439,77 +441,84 @@ class SupersetAutomator:
             bool: True if company added successfully, False otherwise
         """
         try:
+            logger.info(f"Attempting to add new company: {company_name}")
+
+            # INFO: There are cases where suggestions are there but no matching company
+            
             # no_match_message = self.driver.find_element(By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]")
-            no_match_message = self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]"))
-            )
+            # no_match_message = self.wait.until(
+            #     EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'No matching companies found in your account')]"))
+            # )
                     
-            if no_match_message.is_displayed():
-                logger.info("No matching companies found. Adding a new company...")
-        
-                add_new_company_button = self.driver.find_element(By.XPATH, "//button[@type='button' and @ng-click='addNewCompany(true);']")
-                add_new_company_button.click()
+            # if no_match_message.is_displayed():
+
+            logger.info("No matching companies found. Adding a new company...")
+    
+            add_new_company_button = self.driver.find_element(By.XPATH, "//button[@type='button' and @ng-click='addNewCompany(true);']")
+            add_new_company_button.click()
+            
+            # Wait for the modal popup with the specified header to appear
+            logger.info("Waiting for 'Add a Company Contact' modal to appear...")
+            self.wait.until(
+                EC.presence_of_element_located((By.XPATH, "//h3[@class='modal-title' and text()='Add a Company Contact']"))
+            )
+            logger.info("'Add a Company Contact' modal is now visible.")
+
+            # Locate the company name input field in the modal
+            company_name_input = self.wait.until(
+                EC.presence_of_element_located((By.ID, "companyName"))
+            )
+
+            # Enter the company name into the input field
+            company_name_input.clear()
+            company_name_input.send_keys(company_name)
+
+            logger.info(f"Entered company name '{company_name}' in the modal input field.")
+
+            # Wait for the list of companies to appear
+            logger.info("Waiting for the list of companies to load...")
+            company_list = self.wait.until(
+                EC.presence_of_all_elements_located(
+                    (By.XPATH, "//ul[contains(@class, 'inline-select-list')]/li")
+                )
+            )
+
+            # Iterate through the list to find a matching company
+            selected = False
+            for company in company_list:
+                logger.info(f"Checking company: {company.text} : matching status: {company_name.lower() == company.text.lower()}")
                 
-                # Wait for the modal popup with the specified header to appear
-                logger.info("Waiting for 'Add a Company Contact' modal to appear...")
-                self.wait.until(
-                    EC.presence_of_element_located((By.XPATH, "//h3[@class='modal-title' and text()='Add a Company Contact']"))
-                )
-                logger.info("'Add a Company Contact' modal is now visible.")
+                if company_name.lower() == company.text.lower():
+                    logger.info(f"Selecting exact matching company: {company.text}")
+                    company.click()
+                    selected = True
+                    break
 
-                # Locate the company name input field in the modal
-                company_name_input = self.wait.until(
-                    EC.presence_of_element_located((By.ID, "companyName"))
-                )
+            if not selected:
+                logger.warning("No matching company found in the list.")
 
-                # Enter the company name into the input field
-                company_name_input.clear()
-                company_name_input.send_keys(company_name)
+            # Locate and click the "Add Company" button
+            add_company_button = self.wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-primary' and @type='submit' and text()='Add Company']"))
+            )
+            add_company_button.click()
+            logger.info("Clicked 'Add Company' button.")
 
-                logger.info(f"Entered company name '{company_name}' in the modal input field.")
+            # Wait for the toast message indicating success
+            logger.info("Waiting for success toast message...")
+            self.wait.until(
+                EC.presence_of_element_located((By.XPATH, "//div[@class='toast-message' and text()='Company added successfully.']"))
+            )
+            logger.info("Success toast message detected: 'Company added successfully.'")
 
-                # Wait for the list of companies to appear
-                logger.info("Waiting for the list of companies to load...")
-                company_list = self.wait.until(
-                    EC.presence_of_all_elements_located(
-                        (By.XPATH, "//ul[contains(@class, 'inline-select-list')]/li")
-                    )
-                )
-
-                # Iterate through the list to find a matching company
-                selected = False
-                for company in company_list:
-                    if company_name.lower() == company.text.lower():
-                        logger.info(f"Selecting exact matching company: {company.text}")
-                        company.click()
-                        selected = True
-                        break
-
-                if not selected:
-                    logger.warning("No matching company found in the list.")
-
-                # Locate and click the "Add Company" button
-                add_company_button = self.wait.until(
-                    EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-primary' and @type='submit' and text()='Add Company']"))
-                )
-                add_company_button.click()
-                logger.info("Clicked 'Add Company' button.")
-
-                # Wait for the toast message indicating success
-                logger.info("Waiting for success toast message...")
-                self.wait.until(
-                    EC.presence_of_element_located((By.XPATH, "//div[@class='toast-message' and text()='Company added successfully.']"))
-                )
-                logger.info("Success toast message detected: 'Company added successfully.'")
-
-                return True
+            return True
                 
         except NoSuchElementException:
             logger.info("No 'No matching companies found' message displayed.")
+            return False
         except Exception as e:
             logger.error(f"Error adding new company: {str(e)}")
-        
-        return False
+            return False
 
     def select_company(self, company_name: str = "Mercedes Benz") -> bool:
         """
@@ -534,20 +543,24 @@ class SupersetAutomator:
 
             # Wait for dropdown to become visible
             logger.info("Waiting for company suggestions dropdown...")
-            self.wait.until(
-                EC.visibility_of_element_located((By.XPATH, "//ul[contains(@class, 'dropdown-menu')]"))
+            dropdown = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.CSS_SELECTOR, "ul.dropdown-menu[uib-typeahead-popup][role='listbox']")
+                )
             )
 
-            # Wait for visible suggestions
+            # Wait for visible suggestion items (<li role='option'>)
             suggestions = self.wait.until(
                 EC.visibility_of_all_elements_located(
-                    (By.XPATH, "//ul[contains(@class, 'dropdown-menu')]/li/a")
+                    (By.CSS_SELECTOR, "ul.dropdown-menu[uib-typeahead-popup][role='listbox'] li[role='option'] a")
                 )
             )
 
             for suggestion in suggestions:
-                if company_name.lower() in suggestion.text.lower():
-                    logger.info(f"Selecting company: {suggestion.text}")
+                suggestion_text = suggestion.text.strip()
+                logger.info(f"Checking suggestion: {suggestion_text}")
+                if company_name.lower() in suggestion_text.lower():
+                    logger.info(f"Selecting company: {suggestion_text}")
                     suggestion.click()
                     return True
 
@@ -572,13 +585,16 @@ class SupersetAutomator:
         Returns:
             bool: True if successful, False otherwise
         """
-        try:
-            logger.info("Starting company data input process...")
+        logger.info("Starting company data input process...")
 
-            company_selected = self.select_company(company_name)
+        company_selected = self.select_company(company_name)
+
+        try:
 
             if not company_selected:
+                logger.info("Company not found in the dropdown. Attempting to add a new company...")
                 new_company_added = self.add_new_company(company_name)
+                logger.info(f"New company added: {new_company_added}")
                 if new_company_added:
                     self.select_company(company_name)
                     logger.info("Company created and selected.")
