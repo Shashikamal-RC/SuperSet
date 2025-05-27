@@ -92,6 +92,46 @@ if st.session_state.job_data:
         location = st.text_input("Location *", 
                                 value=st.session_state.job_data.get('location', 'Pune'))
         
+        posting_type = st.selectbox(
+            "Posting Type *",
+            options=["Full time", "Internship", "Internship to PPO"],
+            index=0 if st.session_state.job_data.get('posting_type', '') not in [
+                "Full time", "Internship", "Internship to PPO"
+            ] else ["Full time", "Internship", "Internship to PPO"].index(
+                st.session_state.job_data.get('posting_type', "Full time")
+            )
+        )
+
+        role_family = st.selectbox(
+            "Role Family *",
+            options=[
+                "Business Generalist",
+                "Product",
+                "Customer Success",
+                "Growth & Marketing",
+                "Category Management",
+                "Venture Capital",
+                "B2B Sales & Partnerships"
+            ],
+            index=0 if st.session_state.job_data.get('role_family', '') not in [
+                "Business Generalist",
+                "Product",
+                "Customer Success",
+                "Growth & Marketing",
+                "Category Management",
+                "Venture Capital",
+                "B2B Sales & Partnerships"
+            ] else [
+                "Business Generalist",
+                "Product",
+                "Customer Success",
+                "Growth & Marketing",
+                "Category Management",
+                "Venture Capital",
+                "B2B Sales & Partnerships"
+            ].index(st.session_state.job_data.get('role_family', "Business Generalist"))
+        )
+
         job_function = st.selectbox(
             "Job Function *",
             options=["Software Development", "Sales", "General Management", "Marketing - General", "Product Management"],

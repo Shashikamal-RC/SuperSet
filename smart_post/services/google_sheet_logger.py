@@ -5,6 +5,7 @@ from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -109,6 +110,23 @@ def log_job_data(job_data):
     else:
         # Already a dictionary or similar structure
         data_dict = job_data
+
+
+    # Calculate "Week of Job Posted" (preceding Monday)
+
+    timestamp = data_dict.get('Timestamp') or data_dict.get('timestamp')
+    if timestamp:
+        if isinstance(timestamp, datetime):
+            post_date = timestamp
+        else:
+            try:
+                post_date = datetime.strptime(str(timestamp), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                post_date = datetime.now()
+        week_start = post_date - timedelta(days=post_date.weekday())
+        data_dict['Week of Job Posted'] = week_start.strftime("%Y-%m-%d")
+    else:
+        data_dict['Week of Job Posted'] = datetime.now().strftime("%Y-%m-%d")
     
     return log_to_google_sheet(data_dict)
 

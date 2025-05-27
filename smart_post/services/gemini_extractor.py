@@ -14,6 +14,10 @@ class JobDetails(BaseModel):
     min_salary: Optional[int] = Field(0, description="Minimum salary/CTC in numerical format (e.g., 100000)")
     max_salary: Optional[int] = Field(0, description="Maximum salary/CTC in numerical format (e.g., 150000)")
     salary_breakup: Optional[str] = Field('', description="Detailed breakdown of salary components including base pay, bonuses, benefits, etc.")
+    role_family: str = Field(
+        "Product", 
+        description="The role family category. Must be one of: 'Business Generalist', 'Product', 'Customer Success', 'Growth & Marketing', 'Category Management', 'Venture Capital', 'B2B Sales & Partnerships'. If none of these categories fit, default to 'Product'."
+    )
     job_function: str = Field(
         "Product Management", 
         description="The job function category. Must be one of: 'Sales', 'General Management', 'Marketing - General', or 'Product Management'. If none of these categories fit, default to 'Product Management'."
@@ -55,6 +59,17 @@ For salary breakup, include all details about compensation structure including:
 
 Important: The salary_breakup field must be a string, not a list. If no salary breakdown is found, use an empty string "".
 
+For role_family, analyze the job title and description to categorize it as one of:
+- Business Generalist: For general business roles, business analysts, operations, consultants
+- Product: For product management, product development, UX/UI roles
+- Customer Success: For customer service, customer experience, client management roles
+- Growth & Marketing: For growth marketing, digital marketing, brand marketing roles
+- Category Management: For category managers, inventory/catalog management roles
+- Venture Capital: For VC analysts, investment associates, portfolio management roles
+- B2B Sales & Partnerships: For B2B sales, account executives, partnership development roles
+
+If none of these categories clearly fit, default to 'Product'.
+
 For job_function, analyze the job title and description to categorize it as one of: 
 - Sales: For positions focused on selling products/services, account management, business development
 - General Management: For leadership/executive roles, department heads, operational management
@@ -75,6 +90,7 @@ Please extract the following fields:
 - min_salary: Minimum salary/CTC in numerical format only (e.g., for ₹10 LPA, extract 1000000)
 - max_salary: Maximum salary/CTC in numerical format only (e.g., for ₹15 LPA, extract 1500000)
 - salary_breakup: Detailed breakdown of salary components as a string (not a list)
+- role_family: Categorize as 'Business Generalist', 'Product', 'Customer Success', 'Growth & Marketing', 'Category Management', 'Venture Capital', or 'B2B Sales & Partnerships' (default to 'Product' if uncertain)
 - job_function: Categorize as 'Sales', 'General Management', 'Marketing - General', or 'Product Management' (default to 'Product Management' if uncertain)
 - job_description: Extract the COMPLETE job description section EXACTLY as it appears in the input, preserving original formatting, structure, line breaks, and paragraphing. Only clean emojis or special Unicode characters.
 - is_ai_generated: Set to true if you generated the job description, false if extracted from input
@@ -82,8 +98,46 @@ Please extract the following fields:
 Respond in JSON format with these fields.""")
 ])
 
+
+# Optionally: Add a function to generate a job description in the requested format
+def generate_structured_job_description(company_name: str, job_title: str) -> str:
+    return f"""About the Company
+    The company is a fast-growing organization committed to building thoughtful, impactful products that solve real-world problems. With a focus on innovation, collaboration, and user-centric design, the team works to deliver value across every stage of the product lifecycle. The company fosters a culture of curiosity, ownership, and continuous improvement.
+
+    Role Overview
+    The {job_title} will be responsible for owning the end-to-end product development process, from ideation to launch. This individual will play a key role in defining product strategy, gathering requirements, collaborating with cross-functional teams, and delivering solutions that meet both user needs and business goals. The role demands strategic thinking, executional excellence, and strong communication skills.
+
+    Key Responsibilities
+    - Defines and articulates the product vision, strategy, and roadmap.
+    - Works closely with engineering, design, marketing, and business stakeholders to bring products to life.
+    - Translates complex user and business needs into clear, actionable product requirements.
+    - Prioritizes features and enhancements based on data, impact, and feasibility.
+    - Oversees development cycles to ensure timely and high-quality product releases.
+    - Continuously gathers feedback and monitors performance to guide iterations and improvements.
+    - Conducts market and competitor analysis to inform product decisions and positioning.
+    - Acts as the voice of the user throughout the product development process.
+
+    Qualifications
+    - Bachelor’s degree in Business, Engineering, Design, or a related field.
+    - 1 to 3 years of experience in product management or a closely related discipline.
+    - Strong analytical and problem-solving abilities.
+    - Excellent communication and interpersonal skills.
+    - Proven ability to work in fast-paced, collaborative environments.
+    - Familiarity with modern product tools (e.g., Jira, Figma, Notion) is preferred.
+    - A user-first mindset with a passion for building meaningful products.
+
+    The company fosters an open, collaborative culture where innovation is encouraged and impact is celebrated. If you're passionate about solving real-world problems through technology, this is the place to be.
+    """
+
 # Step 4: Main function
 def extract_job_details(raw_input: str) -> dict:
     chain = prompt | llm | parser
     result: JobDetails = chain.invoke({"raw_input": raw_input})
+
+    if result.is_ai_generated:
+        result.job_description = generate_structured_job_description(
+            company_name=result.company_name or "The company",
+            job_title=result.job_title
+        )
+    
     return result.dict()
