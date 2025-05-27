@@ -11,7 +11,7 @@ from datetime import timedelta
 load_dotenv()
 
 def log_to_google_sheet(data: dict):
-    data = data.__dict__
+    # data = data.__dict__
 
     # Get configuration from environment variables
     SPREADSHEET_ID = os.environ.get('GOOGLE_SHEETS_SPREADSHEET_ID')
@@ -115,8 +115,9 @@ def log_job_data(job_data):
 
 
     # Calculate "Week of Job Posted" (preceding Monday)
+    data_dict = data_dict.__dict__
 
-    timestamp = data_dict.get('Timestamp', None) or data_dict.get('timestamp', None)
+    timestamp = data_dict.get('timestamp', None) or data_dict.get('Timestamp', None)
     if timestamp:
         if isinstance(timestamp, datetime):
             post_date = timestamp
