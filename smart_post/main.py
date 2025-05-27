@@ -178,6 +178,8 @@ if st.session_state.job_data:
                 'company_name': company_name,
                 'job_title': job_title,
                 'location': location,
+                'posting_type': posting_type,
+                'role_family': role_family,
                 'job_function': job_function,
                 'min_salary': int(min_salary) if min_salary.isdigit() else 0,
                 'max_salary': int(max_salary) if max_salary.isdigit() else 0,
@@ -206,6 +208,8 @@ if st.session_state.job_data:
                 salary_breakup=st.session_state.job_data["salary_breakup"],
                 is_ai_generated=st.session_state.job_data["is_ai_generated"],
                 posted_by=st.session_state.job_data.get("posted_by", "Rishikesh"),
+                posting_type=st.session_state.job_data.get("posting_type", "Full time"),
+                role_family=st.session_state.job_data.get("role_family", "Product"),
                 timestamp=st.session_state.job_data.get("timestamp", datetime.now())
             )
             
