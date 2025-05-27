@@ -134,6 +134,10 @@ def extract_job_details(raw_input: str) -> dict:
     chain = prompt | llm | parser
     result: JobDetails = chain.invoke({"raw_input": raw_input})
 
+    # Check if input is too minimal (less than 100 characters or fewer than 5 lines)
+    if len(raw_input) < 100 or raw_input.count('\n') < 5:
+        result.is_ai_generated = True
+
     if result.is_ai_generated:
         result.job_description = generate_structured_job_description(
             company_name=result.company_name or "The company",
