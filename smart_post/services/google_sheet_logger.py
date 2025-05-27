@@ -116,7 +116,7 @@ def log_job_data(job_data):
 
     # Calculate "Week of Job Posted" (preceding Monday)
 
-    timestamp = data_dict.get('Timestamp') or data_dict.get('timestamp')
+    timestamp = data_dict.get('Timestamp', None) or data_dict.get('timestamp', None)
     if timestamp:
         if isinstance(timestamp, datetime):
             post_date = timestamp
