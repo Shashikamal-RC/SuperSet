@@ -67,6 +67,8 @@ class JobData:
     salary_breakup: str = ""
     posted_by: str = ""
     timestamp: str = ""
+    posting_type: str = "Full Time"
+    role_family: str = "Product"
     is_ai_generated: bool = False
 
 
