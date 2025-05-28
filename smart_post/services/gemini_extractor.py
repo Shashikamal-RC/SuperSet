@@ -78,9 +78,11 @@ For job_function, analyze the job title and description to categorize it as one 
 
 If none of these categories clearly fit, default to 'Product Management'.
 
-IMPORTANT: For job_description, when extracting from the input, maintain EXACTLY the original formatting, structure, line breaks, bullet points, and paragraphing. Copy the job description section precisely as it appears in the input text - do not rewrite, summarize, or restructure it. Only clean emojis or special Unicode characters by replacing them with appropriate text descriptions while preserving all formatting.
+IMPORTANT: For job_description, when extracting from the input, maintain EXACTLY the original formatting, structure, line breaks, bullet points, and paragraphing. Copy the job description section precisely as it appears in the input text - do not rewrite, summarize, or restructure it. Never replace or modify any bullet points, numbered lists, or special characters used for formatting. Only clean emojis or special Unicode characters by replacing them with appropriate text descriptions while preserving all formatting.
 
-If a detailed job description is not provided in the input, generate a professional and comprehensive job description based on the job title and other information available. When generating a job description, set is_ai_generated to True. Otherwise, extract the job description from the input and set is_ai_generated to False."""),
+IMPORTANT: If the input contains only basic information (like just a job title, salary, and experience requirements) without a comprehensive job description with responsibilities and qualifications, you MUST set is_ai_generated to True. A proper job description should include multiple paragraphs or bullet points about responsibilities and qualifications - if these are missing, treat it as not having a job description.
+
+When generating a job description, set is_ai_generated to True. When extracting an existing detailed job description from the input, set is_ai_generated to False."""),
     ("human", """{raw_input}
 
 Please extract the following fields:
@@ -101,33 +103,34 @@ Respond in JSON format with these fields.""")
 
 # Optionally: Add a function to generate a job description in the requested format
 def generate_structured_job_description(company_name: str, job_title: str) -> str:
+    # Note: The indentation has been fixed to preserve bullet points
     return f"""About the Company
-    The company is a fast-growing organization committed to building thoughtful, impactful products that solve real-world problems. With a focus on innovation, collaboration, and user-centric design, the team works to deliver value across every stage of the product lifecycle. The company fosters a culture of curiosity, ownership, and continuous improvement.
+{company_name} is a fast-growing organization committed to building thoughtful, impactful products that solve real-world problems. With a focus on innovation, collaboration, and user-centric design, the team works to deliver value across every stage of the product lifecycle. The company fosters a culture of curiosity, ownership, and continuous improvement.
 
-    Role Overview
-    The {job_title} will be responsible for owning the end-to-end product development process, from ideation to launch. This individual will play a key role in defining product strategy, gathering requirements, collaborating with cross-functional teams, and delivering solutions that meet both user needs and business goals. The role demands strategic thinking, executional excellence, and strong communication skills.
+Role Overview
+The {job_title} will be responsible for owning the end-to-end product development process, from ideation to launch. This individual will play a key role in defining product strategy, gathering requirements, collaborating with cross-functional teams, and delivering solutions that meet both user needs and business goals. The role demands strategic thinking, executional excellence, and strong communication skills.
 
-    Key Responsibilities
-    - Defines and articulates the product vision, strategy, and roadmap.
-    - Works closely with engineering, design, marketing, and business stakeholders to bring products to life.
-    - Translates complex user and business needs into clear, actionable product requirements.
-    - Prioritizes features and enhancements based on data, impact, and feasibility.
-    - Oversees development cycles to ensure timely and high-quality product releases.
-    - Continuously gathers feedback and monitors performance to guide iterations and improvements.
-    - Conducts market and competitor analysis to inform product decisions and positioning.
-    - Acts as the voice of the user throughout the product development process.
+Key Responsibilities
+- Defines and articulates the product vision, strategy, and roadmap.
+- Works closely with engineering, design, marketing, and business stakeholders to bring products to life.
+- Translates complex user and business needs into clear, actionable product requirements.
+- Prioritizes features and enhancements based on data, impact, and feasibility.
+- Oversees development cycles to ensure timely and high-quality product releases.
+- Continuously gathers feedback and monitors performance to guide iterations and improvements.
+- Conducts market and competitor analysis to inform product decisions and positioning.
+- Acts as the voice of the user throughout the product development process.
 
-    Qualifications
-    - Bachelor’s degree in Business, Engineering, Design, or a related field.
-    - 1 to 3 years of experience in product management or a closely related discipline.
-    - Strong analytical and problem-solving abilities.
-    - Excellent communication and interpersonal skills.
-    - Proven ability to work in fast-paced, collaborative environments.
-    - Familiarity with modern product tools (e.g., Jira, Figma, Notion) is preferred.
-    - A user-first mindset with a passion for building meaningful products.
+Qualifications
+- Bachelor's degree in Business, Engineering, Design, or a related field.
+- 1 to 3 years of experience in product management or a closely related discipline.
+- Strong analytical and problem-solving abilities.
+- Excellent communication and interpersonal skills.
+- Proven ability to work in fast-paced, collaborative environments.
+- Familiarity with modern product tools (e.g., Jira, Figma, Notion) is preferred.
+- A user-first mindset with a passion for building meaningful products.
 
-    The company fosters an open, collaborative culture where innovation is encouraged and impact is celebrated. If you're passionate about solving real-world problems through technology, this is the place to be.
-    """
+{company_name} fosters an open, collaborative culture where innovation is encouraged and impact is celebrated. If you're passionate about solving real-world problems through technology, this is the place to be.
+"""
 
 # Step 4: Main function
 def extract_job_details(raw_input: str) -> dict:
