@@ -28,7 +28,7 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException
 )
 from webdriver_manager.chrome import ChromeDriverManager
-
+from selenium.webdriver.common.action_chains import ActionChains
 from chromedriver_autoinstaller import install
 import shutil
 
@@ -161,10 +161,29 @@ class SupersetAutomator:
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             
+            # Add options to reduce UI latency issues
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-browser-side-navigation")
+            options.add_argument("--disable-infobars")
+            options.add_argument("--window-size=1920,1080")
+            
+            # Reduce frame rate for better stability
+            options.add_argument("--disable-frame-rate-limit")
+            
+            # Disable unnecessary features
+            options.add_argument("--disable-sync")
+            options.add_argument("--disable-smooth-scrolling")
+            
+            # Set page load strategy to eager to improve performance
+            options.page_load_strategy = "eager"
+            
             if self.headless:    
                 options.add_argument("--headless")  # Modern headless mode
             
             self.driver = webdriver.Chrome(options=options)
+            
+            # Set script timeout to avoid UI latency errors
+            self.driver.set_script_timeout(30)
             
             self.wait = WebDriverWait(self.driver, 20)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
@@ -177,7 +196,7 @@ class SupersetAutomator:
         """Set up the WebDriver for browser automation."""
         try:
             logger.info("Setting up WebDriver...")
-
+            
             options = webdriver.ChromeOptions()
 
             if self.headless:
@@ -186,6 +205,22 @@ class SupersetAutomator:
             options.add_argument("--disable-gpu")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
+            
+            # Add options to reduce UI latency issues
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-browser-side-navigation")
+            options.add_argument("--disable-infobars")
+            options.add_argument("--window-size=1920,1080")
+            
+            # Reduce frame rate for better stability
+            options.add_argument("--disable-frame-rate-limit")
+            
+            # Disable unnecessary features
+            options.add_argument("--disable-sync")
+            options.add_argument("--disable-smooth-scrolling")
+            
+            # Set page load strategy to eager to improve performance
+            options.page_load_strategy = "eager"
 
             # Locate chromium binary
             chromium_path = shutil.which("chromium") or shutil.which("chromium-browser")
@@ -201,6 +236,9 @@ class SupersetAutomator:
                 service=ChromeService(executable_path=chromedriver_path),
                 options=options
             )
+            
+            # Set script timeout to avoid UI latency errors
+            self.driver.set_script_timeout(30)
 
             self.wait = WebDriverWait(self.driver, 15)
             self.element_interaction = ElementInteraction(self.driver, self.wait)
@@ -213,7 +251,7 @@ class SupersetAutomator:
 
         except Exception as e:
             logger.error(f"Unexpected error in automation process: {e}")
-            raise       
+            raise
     
     def setup_driver_firefox(self) -> None:
         """Set up the Firefox WebDriver for browser automation."""
@@ -930,21 +968,36 @@ class SupersetAutomator:
                 bool: True if successful, False otherwise
         """
         try:
+            print(f"Filling TinyMCE field with label: {label_text} and content: {content}")
             # Find label with matching text
             label = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, f"//label[contains(text(), '{label_text}')]"))
             )
 
+            logger.info(f"Found label: {label_text}")
+
             # Find the iframe that follows the label
             iframe = label.find_element(By.XPATH, ".//following::iframe[contains(@id, '_ifr')]")
             self.driver.switch_to.frame(iframe)
+
+            logger.info(f"Switched to TinyMCE iframe for label: {label_text}")
 
             # Wait for and interact with TinyMCE body
             body = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-            body.clear()
-            body.send_keys(content)
+            
+            logger.info("Found TinyMCE body element, using JavaScript to set content...")
+            
+            # Use JavaScript to set content directly to TinyMCE editor
+            # This avoids sending individual keystrokes which can cause latency issues
+            js_content = content.replace("'", "\\'").replace("\n", "\\n")
+            self.driver.execute_script(f"arguments[0].innerHTML = '{js_content}';", body)
+            
+            # Trigger change event to ensure TinyMCE registers the change
+            self.driver.execute_script("var evt = document.createEvent('HTMLEvents'); evt.initEvent('change', true, true); arguments[0].dispatchEvent(evt);", body)
+            
+            logger.info("Content set in TinyMCE field using JavaScript")
 
             # Always switch back
             self.driver.switch_to.default_content()
@@ -1010,7 +1063,7 @@ class SupersetAutomator:
                 
                 # Try one more time with Actions
                 logger.info("Attempting click with Actions chain...")
-                from selenium.webdriver.common.action_chains import ActionChains
+                
                 actions = ActionChains(self.driver)
                 actions.move_to_element(create_button).click().perform()
             
@@ -2094,14 +2147,14 @@ class SupersetAutomator:
                 logger.error("CTC details filling failed")
                 return False
             logger.info("CTC details added successfully")
-            
+
             # Step 9: Check equity checkbox
             equity_check_success = self.click_is_equity_checkbox()
             if not equity_check_success:
                 logger.error("Equity checkbox clicking failed")
                 return False
             logger.info("Equity checked successfully")
-            
+
             # Step 10: Fill CTC breakdown field
             ctc_breakdown_success = self.fill_tinymce_field_by_label("Salary break-up / Additional Compensation", job_data.salary_breakup)
             if not ctc_breakdown_success:
@@ -2115,7 +2168,7 @@ class SupersetAutomator:
                 logger.error("Job description filling failed")
                 return False
             logger.info("Job description added successfully")
-            
+
             # Final step: Create and confirm job profile
             create_and_confirm_success = self.click_create_and_confirm()
             if not create_and_confirm_success:
