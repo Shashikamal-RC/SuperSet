@@ -82,7 +82,9 @@ IMPORTANT: For job_description, when extracting from the input, maintain EXACTLY
 
 IMPORTANT: If the input contains only basic information (like just a job title, salary, and experience requirements) without a comprehensive job description with responsibilities and qualifications, you MUST set is_ai_generated to True. A proper job description should include multiple paragraphs or bullet points about responsibilities and qualifications - if these are missing, treat it as not having a job description.
 
-When generating a job description, set is_ai_generated to True. When extracting an existing detailed job description from the input, set is_ai_generated to False."""),
+When generating a job description, set is_ai_generated to True. When extracting an existing detailed job description from the input, set is_ai_generated to False.
+
+Note: After extraction, the system will automatically format the job description with proper bullet points while preserving the original content."""),
     ("human", """{raw_input}
 
 Please extract the following fields:
@@ -101,6 +103,69 @@ Respond in JSON format with these fields.""")
 ])
 
 
+# Function to format job description with bullet points using the LLM
+def format_with_llm(job_description: str, job_title: str = "") -> str:
+    """
+    Use the LLM to format the job description with proper bullet points
+    while preserving the original content and meaning.
+    """
+    if not job_description:
+        return job_description
+    
+    # Check if the job description already has proper bullet point formatting
+    # If it already has bullet points, return it as is to preserve the original formatting
+    lines = job_description.split('\n')
+    bullet_count = sum(1 for line in lines if line.strip().startswith(('-', '•', '*')))
+    
+    # If there are already bullet points, preserve the original formatting
+    if bullet_count > 0:
+        return job_description
+    
+    # Use the same model instance for consistency
+    format_llm = OpenAIModel.get_instance()
+    format_prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are an expert at formatting job descriptions. Your task is to take a job description 
+and format it properly with bullet points for readability, while preserving ALL original content.
+
+Follow these rules:
+1. NEVER change the actual content or meaning of the text
+2. Identify section headers (like "Key Responsibilities", "Qualifications", etc.)
+3. Format all content under each section header as proper bullet points with "- " prefix
+4. Leave section headers without bullet points
+5. IMPORTANT: Preserve any existing formatting, especially existing bullet points
+6. Don't add or remove information - keep exactly the same content
+7. Don't summarize or paraphrase the text
+8. Maintain original paragraph structure for non-list content
+9. If text already has proper formatting or contains any bullet points, don't modify those sections
+
+Examples of sections to format with bullet points:
+- Responsibilities/Key Responsibilities 
+- Qualifications/Requirements
+- Skills
+- Experience
+- Benefits
+- Any subsections under major sections
+
+Return the entire formatted job description with all original content preserved."""),("human", """Here is a job description for {job_title} position that needs formatting:
+
+{job_description}
+
+Please format this job description with proper bullet points where appropriate, while preserving ALL the original content and meaning.""")
+    ])
+        # Format the job description
+    chain = format_prompt | format_llm
+    formatted_desc = chain.invoke({"job_title": job_title, "job_description": job_description})
+    
+    # Extract the content string from the response
+    # The model may return a complex object with content attribute or a simple string
+    if hasattr(formatted_desc, 'content'):
+        return formatted_desc.content
+    elif isinstance(formatted_desc, dict) and 'content' in formatted_desc:
+        return formatted_desc['content']
+    else:
+        # If we can't find content, return the original response or convert to string
+        return str(formatted_desc) if not isinstance(formatted_desc, str) else formatted_desc
+
 # Optionally: Add a function to generate a job description in the requested format
 def generate_structured_job_description(company_name: str, job_title: str) -> str:
     # Note: The indentation has been fixed to preserve bullet points
@@ -110,7 +175,7 @@ def generate_structured_job_description(company_name: str, job_title: str) -> st
 Role Overview
 The {job_title} will be responsible for owning the end-to-end product development process, from ideation to launch. This individual will play a key role in defining product strategy, gathering requirements, collaborating with cross-functional teams, and delivering solutions that meet both user needs and business goals. The role demands strategic thinking, executional excellence, and strong communication skills.
 
-Key Responsibilities
+Key Responsibilities:
 - Defines and articulates the product vision, strategy, and roadmap.
 - Works closely with engineering, design, marketing, and business stakeholders to bring products to life.
 - Translates complex user and business needs into clear, actionable product requirements.
@@ -120,7 +185,7 @@ Key Responsibilities
 - Conducts market and competitor analysis to inform product decisions and positioning.
 - Acts as the voice of the user throughout the product development process.
 
-Qualifications
+Qualifications:
 - Bachelor's degree in Business, Engineering, Design, or a related field.
 - 1 to 3 years of experience in product management or a closely related discipline.
 - Strong analytical and problem-solving abilities.
@@ -146,5 +211,27 @@ def extract_job_details(raw_input: str) -> dict:
             company_name=result.company_name or "The company",
             job_title=result.job_title
         )
+    else:
+        # Only apply formatting if there are substantive contents to format
+        if result.job_description and len(result.job_description) > 50:
+            # Check if the job description already has bullet points
+            has_bullet_points = any(line.strip().startswith(('-', '•', '*')) 
+                                   for line in result.job_description.split('\n'))
+            
+            # Only format if no bullet points exist
+            if not has_bullet_points:
+                try:
+                    # Use the LLM to format the job description with proper bullet points
+                    formatted_description = format_with_llm(
+                        job_description=result.job_description,
+                        job_title=result.job_title
+                    )
+                    # Only use the formatted version if it's not empty and not an error message
+                    if formatted_description and len(formatted_description) > 50:
+                        result.job_description = formatted_description
+                except Exception as e:
+                    print(f"Error formatting job description: {e}")
+                    # If formatting fails, keep the original description
+                    pass
     
     return result.dict()
