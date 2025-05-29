@@ -10,7 +10,7 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union, Any
-
+import streamlit as st
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -1883,6 +1883,8 @@ class SupersetAutomator:
             next_day_month = next_day.month
             
             logger.info(f"Looking for date: {next_day_num} in the calendar")
+
+            st.info(f"{hours_input.get_attribute('value')}:{minutes_input.get_attribute('value')} {meridian} on {next_day.strftime('%Y-%m-%d')}")   
             
             # Handle calendar implementation - need to find the active month's dates
             # (not text-muted) and locate the one matching our target day
