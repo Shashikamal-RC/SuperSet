@@ -1292,8 +1292,7 @@ class SupersetAutomator:
             if not checkboxes or len(checkboxes) == 0:
                 logger.warning("No course checkboxes found.")
                 return False
-                
-            # Try to click the first checkbox
+                  # Try to click the first checkbox
             logger.info("Selecting the first available course...")
             try:
                 checkbox = checkboxes[0]
@@ -1301,19 +1300,69 @@ class SupersetAutomator:
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", checkbox)
                 time.sleep(2)
                 
-                # Try multiple click methods
+                # Take a screenshot before attempting to click
+                self.driver.save_screenshot("before_checkbox_click.png")
+                
+                # Instead of directly clicking the checkbox which may not be interactable,
+                # try to find and click the label or surrounding div
                 try:
-                    logger.info("Attempting standard click on checkbox...")
-                    checkbox.click()
+                    # First, get the checkbox ID to find its label
+                    checkbox_id = checkbox.get_attribute('id')
+                    logger.info(f"Checkbox ID: {checkbox_id}")
+                    
+                    if checkbox_id:
+                        # Try to find and click the label associated with this checkbox
+                        try:
+                            label = self.driver.find_element(By.XPATH, f"//label[@for='{checkbox_id}']")
+                            logger.info("Found associated label for checkbox, clicking it...")
+                            label.click()
+                            logger.info("Successfully clicked label")
+                        except NoSuchElementException:
+                            logger.info("No label found for checkbox ID, trying parent element")
+                            
+                            # Try to find the parent div or li of the checkbox which might be clickable
+                            parent = self.driver.execute_script("return arguments[0].parentElement;", checkbox)
+                            if parent:
+                                logger.info("Clicking parent element of checkbox...")
+                                self.driver.execute_script("arguments[0].click();", parent)
+                                logger.info("Successfully clicked parent element")
+                            else:
+                                # If we can't find a clickable parent, force the checked state directly
+                                logger.info("No parent found, forcing checked state via JavaScript...")
+                                self.driver.execute_script("arguments[0].checked = true; arguments[0].dispatchEvent(new Event('change'));", checkbox)
+                    else:
+                        # If checkbox has no ID, try clicking its parent or force the checked state
+                        logger.info("Checkbox has no ID, trying parent element or JavaScript force")
+                        
+                        # Try to click the parent element
+                        parent = self.driver.execute_script("return arguments[0].parentElement;", checkbox)
+                        if parent:
+                            logger.info("Clicking parent element of checkbox...")
+                            self.driver.execute_script("arguments[0].click();", parent)
+                            logger.info("Successfully clicked parent element")
+                        else:
+                            # Force the checked state directly
+                            logger.info("No parent found, forcing checked state via JavaScript...")
+                            self.driver.execute_script("arguments[0].checked = true; arguments[0].dispatchEvent(new Event('change'));", checkbox)
+                
                 except Exception as e:
-                    logger.warning(f"Standard checkbox click failed: {e}")
-                    try:
-                        logger.info("Attempting JavaScript click on checkbox...")
-                        self.driver.execute_script("arguments[0].click();", checkbox)
-                    except Exception as e2:
-                        logger.warning(f"JavaScript checkbox click failed: {e2}")
-                        logger.info("Attempting to force check the checkbox...")
-                        self.driver.execute_script("arguments[0].checked = true; arguments[0].dispatchEvent(new Event('change'));", checkbox)
+                    logger.warning(f"Failed to click label/parent: {e}, trying direct JavaScript methods")
+                    
+                    # Check if the checkbox has a custom implementation (like a div with checkbox role)
+                    logger.info("Attempting to force check the checkbox via JavaScript...")
+                    self.driver.execute_script("""
+                        arguments[0].checked = true;
+                        arguments[0].dispatchEvent(new Event('change'));
+                        arguments[0].dispatchEvent(new Event('click'));
+                    """, checkbox)
+                    
+                # Take a screenshot after clicking to see the result
+                self.driver.save_screenshot("after_checkbox_click.png")
+                
+                # Verify if the checkbox was successfully checked
+                is_checked = self.driver.execute_script("return arguments[0].checked;", checkbox)
+                logger.info(f"Checkbox checked status: {is_checked}")
+                
             except Exception as e:
                 logger.error(f"Failed to select checkbox: {e}")
                 self.driver.save_screenshot("checkbox_click_error.png")
