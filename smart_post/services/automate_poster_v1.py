@@ -1884,7 +1884,7 @@ class SupersetAutomator:
             
             logger.info(f"Looking for date: {next_day_num} in the calendar")
 
-            st.info(f"{hours_input.get_attribute('value')}:{minutes_input.get_attribute('value')} {meridian} on {next_day.strftime('%Y-%m-%d')}")   
+            st.info(f"Application Deadline : {hours_input.get_attribute('value')}:{minutes_input.get_attribute('value')} {meridian} on {next_day.strftime('%Y-%m-%d')}")   
             
             # Handle calendar implementation - need to find the active month's dates
             # (not text-muted) and locate the one matching our target day
