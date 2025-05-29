@@ -1885,24 +1885,31 @@ class SupersetAutomator:
             logger.info(f"Looking for date: {next_day_num} in the calendar")
 
             st.info(f"Application Deadline : {hours_input.get_attribute('value')}:{minutes_input.get_attribute('value')} {meridian} on {next_day.strftime('%Y-%m-%d')}")   
-            
-            # Handle calendar implementation - need to find the active month's dates
+              # Handle calendar implementation - need to find the active month's dates
             # (not text-muted) and locate the one matching our target day
             try:
-                # Try to find the date button that isn't text-muted (belongs to current month)
-                # and matches our target day number
-                calendar_day_buttons = self.driver.find_elements(By.XPATH, 
-                    "//table[contains(@class, 'uib-daypicker')]//button[not(contains(@class, 'text-muted'))]")
+                # Take a screenshot of the calendar for debugging
+                self.driver.save_screenshot("calendar_before_selection.png")
                 
-                # Log found days for debugging
-                logger.info(f"Found {len(calendar_day_buttons)} active day buttons in current month")
+                # The key issue: We need to find buttons that have spans WITHOUT the text-muted class
+                # This is the crucial part - looking for spans that DON'T have the text-muted class
+                logger.info(f"Looking specifically for day {next_day_num} without text-muted class")
                 
-                next_day_element = None
-                for button in calendar_day_buttons:
-                    if button.text.strip() == str(next_day_num):
-                        next_day_element = button
-                        logger.info(f"Found matching day button with text: {button.text}")
-                        break
+                # This XPath specifically targets buttons with spans that don't have the text-muted class
+                # and match our target day number
+                xpath_current_month_day = (
+                    f"//table[contains(@class, 'uib-daypicker')]//button[contains(@class, 'btn-sm')]"
+                    f"//span[not(contains(@class, 'text-muted')) and text()='{next_day_num}']/.."
+                )
+                
+                # First try finding the day in the current month view
+                try:
+                    logger.info(f"Searching with XPath: {xpath_current_month_day}")
+                    next_day_element = self.driver.find_element(By.XPATH, xpath_current_month_day)
+                    logger.info(f"Found matching day button in current month with day {next_day_num}")
+                except NoSuchElementException:
+                    next_day_element = None
+                    logger.info(f"Day {next_day_num} not found in current month view")
                 
                 # If we need to go to next month (if today is last day of month)
                 if next_day_element is None and current_month != next_day_month:
@@ -1912,30 +1919,55 @@ class SupersetAutomator:
                     next_month_button.click()
                     time.sleep(2)
                     
-                    # Try again with next month view
-                    calendar_day_buttons = self.driver.find_elements(By.XPATH, 
-                        "//table[contains(@class, 'uib-daypicker')]//button[not(contains(@class, 'text-muted'))]")
+                    # Take a screenshot after month navigation
+                    self.driver.save_screenshot("calendar_after_month_navigation.png")
                     
-                    for button in calendar_day_buttons:
-                        if button.text.strip() == str(next_day_num):
+                    # Try again with next month view using the same precise XPath
+                    try:
+                        logger.info(f"Searching in next month with XPath: {xpath_current_month_day}")
+                        next_day_element = self.driver.find_element(By.XPATH, xpath_current_month_day)
+                        logger.info(f"Found matching day button in next month with day {next_day_num}")
+                    except NoSuchElementException:
+                        next_day_element = None
+                        logger.warning(f"Day {next_day_num} not found in next month view either")
+                
+                # Fallback approach - check the HTML structure of the buttons to avoid text-muted spans
+                if next_day_element is None:
+                    logger.warning("Using fallback approach to find the correct date button")
+                    
+                    # Get all button elements
+                    all_buttons = self.driver.find_elements(By.XPATH, 
+                        "//table[contains(@class, 'uib-daypicker')]//button[contains(@class, 'btn-sm')]")
+                    
+                    for button in all_buttons:
+                        # Get the HTML to check if it has text-muted
+                        button_html = button.get_attribute('outerHTML')
+                        button_text = button.text.strip()
+                        
+                        # Log each button for debugging
+                        logger.info(f"Examining button: {button_text}, HTML: {button_html}")
+                        
+                        # Check if this button has our day and does NOT have text-muted in the span
+                        if button_text == str(next_day_num) and 'class="text-muted"' not in button_html:
                             next_day_element = button
-                            logger.info(f"Found matching day button in next month with text: {button.text}")
+                            logger.info(f"Found matching button via HTML inspection: {button_html}")
                             break
                 
-                if next_day_element is None:
-                    # As a fallback, try to find any button with the target day number
-                    fallback_xpath = f"//table[contains(@class, 'uib-daypicker')]//button[text()='{next_day_num}']"
-                    logger.warning(f"Could not find day in active month days, trying fallback: {fallback_xpath}")
-                    next_day_element = self.driver.find_element(By.XPATH, fallback_xpath)
-                
-                # Scroll to ensure the day element is in view
+                # Scroll to ensure the day element is in view and click it
                 if next_day_element:
                     self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_day_element)
                     time.sleep(1)
+                    
+                    # Take a screenshot right before clicking
+                    self.driver.save_screenshot(f"calendar_before_clicking_day_{next_day_num}.png")
+                    
+                    # Get more details about the element we're about to click
+                    logger.info(f"About to click element: {next_day_element.get_attribute('outerHTML')}")
+                    
                     next_day_element.click()
                     logger.info(f"Clicked on day {next_day_num}")
                 else:
-                    raise Exception(f"Could not find day {next_day_num} in the calendar")
+                    raise Exception(f"Could not find day {next_day_num} in the calendar that is not text-muted")
                     
             except Exception as e:
                 logger.error(f"Error selecting date in calendar: {e}")
