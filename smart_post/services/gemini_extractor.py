@@ -168,33 +168,49 @@ Please format this job description with proper bullet points where appropriate, 
 
 # Optionally: Add a function to generate a job description in the requested format
 def generate_structured_job_description(company_name: str, job_title: str) -> str:
-    # Note: The indentation has been fixed to preserve bullet points
+    """
+    Generates a structured job description based on the company name and job title.
+    
+    The format follows specific criteria for post-MBA candidates with 2-5 years 
+    of experience, using bullet points with hyphens and plain text only.
+    """
+    # Define generic company description to use when no specific company info is provided
+    generic_company_desc = "The company is a rapidly scaling startup based in India, driven by a mission to innovate and disrupt. It's building impactful solutions that address critical challenges and create significant value. The culture champions agility, ownership, and continuous learning, fostering an environment where bold ideas are encouraged, and every team member contributes directly to growth. The company believes in moving fast, embracing change, and celebrating collective success."
+    
+    # Use company name in generic description if only name is provided
+    if company_name and company_name != "The company":
+        company_description = f"{company_name} is a rapidly scaling startup based in India, driven by a mission to innovate and disrupt. It's building impactful solutions that address critical challenges and create significant value. The culture champions agility, ownership, and continuous learning, fostering an environment where bold ideas are encouraged, and every team member contributes directly to growth. The company believes in moving fast, embracing change, and celebrating collective success."
+    else:
+        company_description = generic_company_desc
+        company_name = "The company"
+    
     return f"""About the Company
-{company_name} is a fast-growing organization committed to building thoughtful, impactful products that solve real-world problems. With a focus on innovation, collaboration, and user-centric design, the team works to deliver value across every stage of the product lifecycle. The company fosters a culture of curiosity, ownership, and continuous improvement.
+{company_description}
 
 Role Overview
-The {job_title} will be responsible for owning the end-to-end product development process, from ideation to launch. This individual will play a key role in defining product strategy, gathering requirements, collaborating with cross-functional teams, and delivering solutions that meet both user needs and business goals. The role demands strategic thinking, executional excellence, and strong communication skills.
+The {job_title} will be a key member of the team, contributing strategic insights and driving execution excellence. This role is tailored for post-MBA professionals with 2-5 years of relevant experience, looking to make a significant impact in a fast-paced environment. The ideal candidate will combine strong analytical capabilities with exceptional communication skills to deliver results that advance business objectives.
 
 Key Responsibilities:
-- Defines and articulates the product vision, strategy, and roadmap.
-- Works closely with engineering, design, marketing, and business stakeholders to bring products to life.
-- Translates complex user and business needs into clear, actionable product requirements.
-- Prioritizes features and enhancements based on data, impact, and feasibility.
-- Oversees development cycles to ensure timely and high-quality product releases.
-- Continuously gathers feedback and monitors performance to guide iterations and improvements.
-- Conducts market and competitor analysis to inform product decisions and positioning.
-- Acts as the voice of the user throughout the product development process.
+- Leads strategic initiatives aligned with business goals and market opportunities
+- Analyzes complex data to identify trends, insights, and actionable recommendations
+- Collaborates cross-functionally with diverse teams to execute high-impact projects
+- Develops and presents compelling proposals and reports to stakeholders
+- Identifies optimization opportunities and implements solutions to drive efficiency
+- Manages project timelines and resources effectively to ensure on-time delivery
+- Stays current with industry trends and best practices to inform decision-making
+- Contributes to a culture of innovation and continuous improvement
 
 Qualifications:
-- Bachelor's degree in Business, Engineering, Design, or a related field.
-- 1 to 3 years of experience in product management or a closely related discipline.
-- Strong analytical and problem-solving abilities.
-- Excellent communication and interpersonal skills.
-- Proven ability to work in fast-paced, collaborative environments.
-- Familiarity with modern product tools (e.g., Jira, Figma, Notion) is preferred.
-- A user-first mindset with a passion for building meaningful products.
+- MBA from a reputed institution with 2-5 years of post-MBA professional experience
+- Strong strategic thinking and problem-solving capabilities
+- Excellent communication and presentation skills, both written and verbal
+- Proven track record of driving results in fast-paced environments
+- Ability to work autonomously while collaborating effectively with diverse teams
+- Strong analytical skills with data-driven decision-making approach
+- Adaptability to changing priorities and comfort with ambiguity
+- Passion for innovation and creating impactful solutions
 
-{company_name} fosters an open, collaborative culture where innovation is encouraged and impact is celebrated. If you're passionate about solving real-world problems through technology, this is the place to be.
+{company_name} offers a dynamic work environment where talent is recognized and rewarded. Join us to be part of a mission-driven team where your contributions directly impact our growth trajectory and market success.
 """
 
 # Step 4: Main function
