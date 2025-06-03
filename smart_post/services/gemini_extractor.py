@@ -37,8 +37,7 @@ llm = OpenAIModel.get_instance()
 # Step 3: Setup parser and prompt
 parser = PydanticOutputParser(pydantic_object=JobDetails)
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are an assistant that extracts structured job details from raw input text. 
+prompt = ChatPromptTemplate.from_messages([    ("system", """You are an assistant that extracts structured job details from raw input text. 
 Pay special attention to salary information which may be in various formats like:
 - ₹10 LPA – ₹15 LPA (where LPA means Lakhs Per Annum)
 - $80,000-$120,000 per year
@@ -48,6 +47,10 @@ Pay special attention to salary information which may be in various formats like
 Always convert salary to numerical format without currency symbols. 
 For example, "₹10 LPA" should be extracted as "1000000" (10 lakhs = 1 million).
 LPA means Lakhs Per Annum, where 1 lakh = 100,000.
+
+IMPORTANT: Pay special attention to detecting Founder's Office roles. If the input mentions "founder's office", "founders office", "office of the CEO", or similar terms, make sure to extract this accurately in the job title. For example:
+- If input says "FOunDers Office at Chalo", the job_title should be "Founder's Office Associate at Chalo"
+- If input mentions "Office of CEO", the job_title should reflect this as a Founder's Office role
 
 For salary breakup, include all details about compensation structure including:
 - Fixed components
@@ -176,21 +179,47 @@ def generate_structured_job_description(company_name: str, job_title: str) -> st
     """
     # Define generic company description to use when no specific company info is provided
     generic_company_desc = "The company is a rapidly scaling startup based in India, driven by a mission to innovate and disrupt. It's building impactful solutions that address critical challenges and create significant value. The culture champions agility, ownership, and continuous learning, fostering an environment where bold ideas are encouraged, and every team member contributes directly to growth. The company believes in moving fast, embracing change, and celebrating collective success."
-    
-    # Use company name in generic description if only name is provided
+      # Use company name in generic description if only name is provided
     if company_name and company_name != "The company":
         company_description = f"{company_name} is a rapidly scaling startup based in India, driven by a mission to innovate and disrupt. It's building impactful solutions that address critical challenges and create significant value. The culture champions agility, ownership, and continuous learning, fostering an environment where bold ideas are encouraged, and every team member contributes directly to growth. The company believes in moving fast, embracing change, and celebrating collective success."
     else:
         company_description = generic_company_desc
-        company_name = "The company"
+        company_name = "The company"    # Determine if this is a Founder's Office role based on job title
+    job_title_lower = job_title.lower()
+    is_founders_office = any(term in job_title_lower for term in 
+                        ["founder", "ceo", "chief", "office of", "founders office", "cxo"])
     
-    return f"""About the Company
-{company_description}
+    role_overview = ""
+    responsibilities = ""
+    qualifications = ""
+    
+    if is_founders_office:
+        role_overview = f"""Role Overview
+The {job_title} will work directly with the founding team on strategic initiatives, special projects, and high-priority objectives. This role is tailored for post-MBA professionals with 2-5 years of relevant experience, seeking to make significant impact through close collaboration with senior leadership. The ideal candidate will demonstrate exceptional problem-solving abilities, strategic thinking, and versatility to handle diverse challenges across the organization."""        
+        responsibilities = """Key Responsibilities:
+- Directly supports founders/senior leadership on strategic initiatives and special projects
+- Conducts comprehensive market research and competitive analyses to inform business strategy
+- Drafts and prepares high-stakes communications, including presentations and reports
+- Manages cross-functional projects requiring coordination across multiple departments
+- Represents leadership in key meetings and serves as a trusted liaison with stakeholders
+- Analyzes business performance metrics and identifies opportunities for improvement
+- Assists in evaluating strategic partnerships, acquisitions, and growth opportunities
+- Helps translate strategic vision into actionable operational plans"""
 
-Role Overview
-The {job_title} will be a key member of the team, contributing strategic insights and driving execution excellence. This role is tailored for post-MBA professionals with 2-5 years of relevant experience, looking to make a significant impact in a fast-paced environment. The ideal candidate will combine strong analytical capabilities with exceptional communication skills to deliver results that advance business objectives.
+        qualifications = """Qualifications:
+- MBA from a reputed institution with 2-5 years of post-MBA professional experience
+- Exceptional problem-solving abilities with structured thinking approach
+- Outstanding written and verbal communication skills
+- Demonstrated ability to work effectively with senior leadership
+- Experience with strategic planning and business development
+- Strong project management capabilities with attention to detail
+- Ability to quickly adapt to changing priorities and thrive in ambiguity
+- Excellent interpersonal skills with proven ability to build relationships across all levels"""
+    else:
+        role_overview = f"""Role Overview
+The {job_title} will be a key member of the team, contributing strategic insights and driving execution excellence. This role is tailored for post-MBA professionals with 2-5 years of relevant experience, looking to make a significant impact in a fast-paced environment. The ideal candidate will combine strong analytical capabilities with exceptional communication skills to deliver results that advance business objectives."""
 
-Key Responsibilities:
+        responsibilities = """Key Responsibilities:
 - Leads strategic initiatives aligned with business goals and market opportunities
 - Analyzes complex data to identify trends, insights, and actionable recommendations
 - Collaborates cross-functionally with diverse teams to execute high-impact projects
@@ -198,9 +227,9 @@ Key Responsibilities:
 - Identifies optimization opportunities and implements solutions to drive efficiency
 - Manages project timelines and resources effectively to ensure on-time delivery
 - Stays current with industry trends and best practices to inform decision-making
-- Contributes to a culture of innovation and continuous improvement
+- Contributes to a culture of innovation and continuous improvement"""
 
-Qualifications:
+        qualifications = """Qualifications:
 - MBA from a reputed institution with 2-5 years of post-MBA professional experience
 - Strong strategic thinking and problem-solving capabilities
 - Excellent communication and presentation skills, both written and verbal
@@ -208,7 +237,16 @@ Qualifications:
 - Ability to work autonomously while collaborating effectively with diverse teams
 - Strong analytical skills with data-driven decision-making approach
 - Adaptability to changing priorities and comfort with ambiguity
-- Passion for innovation and creating impactful solutions
+- Passion for innovation and creating impactful solutions"""
+    
+    return f"""About the Company
+{company_description}
+
+{role_overview}
+
+{responsibilities}
+
+{qualifications}
 
 {company_name} offers a dynamic work environment where talent is recognized and rewarded. Join us to be part of a mission-driven team where your contributions directly impact our growth trajectory and market success.
 """
@@ -216,11 +254,26 @@ Qualifications:
 # Step 4: Main function
 def extract_job_details(raw_input: str) -> dict:
     chain = prompt | llm | parser
-    result: JobDetails = chain.invoke({"raw_input": raw_input})
-
-    # Check if input is too minimal (less than 100 characters or fewer than 5 lines)
+    result: JobDetails = chain.invoke({"raw_input": raw_input})    # Check if input is too minimal (less than 100 characters or fewer than 5 lines)
     if len(raw_input) < 100 or raw_input.count('\n') < 5:
         result.is_ai_generated = True
+
+    # For minimal inputs, ensure we capture "Founder's Office" type roles correctly
+    # Check both the raw input and the detected job title
+    raw_input_lower = raw_input.lower()
+    is_founders_office_input = any(term in raw_input_lower for term in 
+                               ["founder", "ceo", "chief", "office of", "founders office", "cxo"])
+    
+    if is_founders_office_input:
+        # Ensure the job title reflects that this is a Founder's Office role
+        if not any(x in result.job_title.lower() for x in ["founder", "ceo", "chief", "office of"]):
+            result.job_title = "Founder's Office Associate"
+            if result.company_name:
+                result.job_title = f"Founder's Office Associate at {result.company_name}"
+        
+        # Adjust role family and job function for Founder's Office roles
+        result.role_family = "Business Generalist"
+        result.job_function = "General Management"
 
     if result.is_ai_generated:
         result.job_description = generate_structured_job_description(
